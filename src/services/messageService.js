@@ -1,7 +1,7 @@
 import { decryptMessageAes, decryptOtp, encryptMessageAes, randomId, xorWithOtp } from "../lib/crypto.js";
 import { AppError, mapSupabaseError } from "../lib/errors.js";
 import { getSupabase } from "../lib/supabase.js";
-import { getClientByCode, getClientById } from "./clientService.js";
+import { getClientByCode, getClientByEmail, getClientById } from "./clientService.js";
 import { consumeKey, reserveKey, retrievePeerKey } from "./kmeService.js";
 import { sendViaGmail } from "./mailService.js";
 
@@ -209,4 +209,27 @@ export async function decryptMessageForViewer({ viewerClientCode, messageId }) {
     decryptedBody,
     keyId: key.keyId
   };
+}
+
+export async function sendMessageAsUser({ senderEmail, recipientEmail, subject, body, securityLevel, transportMode }) {
+  const sender = await getClientByEmail(senderEmail);
+  const recipient = await getClientByEmail(recipientEmail);
+  return sendMessage({
+    senderClientCode: sender.code,
+    recipientClientCode: recipient.code,
+    subject,
+    body,
+    securityLevel,
+    transportMode
+  });
+}
+
+export async function listMessagesForUser(email) {
+  const client = await getClientByEmail(email);
+  return listMessagesForClient(client.code);
+}
+
+export async function decryptMessageForUser({ email, messageId }) {
+  const client = await getClientByEmail(email);
+  return decryptMessageForViewer({ viewerClientCode: client.code, messageId });
 }

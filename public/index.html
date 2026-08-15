@@ -11,36 +11,55 @@
       <section class="hero">
         <p class="eyebrow">Quantum-ready secure messaging</p>
         <h1>QuMail</h1>
-        <p class="lede">Application-layer encrypted email with mock quantum key pools today and QKD-ready KME boundaries for later.</p>
+        <p class="lede">Magic-link login for your two approved Gmail test users, with encrypted message delivery mapped onto the same two QuMail clients and key pools you already use.</p>
         <div class="actions">
-          <button id="bootstrapBtn">Bootstrap demo data</button>
+          <button id="adminToggleBtn" type="button" hidden>Show admin tools</button>
+          <button id="logoutBtn" type="button" hidden>Log out</button>
           <span id="bootstrapStatus"></span>
         </div>
       </section>
 
-      <section class="grid two-up">
+      <section id="authPanel" class="grid two-up">
+        <article class="panel">
+          <h2>Login</h2>
+          <p>Use one of the two approved Gmail addresses already mapped to QuMail. We will email a magic link and keep you signed in on return.</p>
+          <form id="loginForm">
+            <label>Email
+              <input id="loginEmail" name="email" type="email" placeholder="name@gmail.com" required />
+            </label>
+            <button type="submit">Send magic link</button>
+          </form>
+          <pre id="loginStatus">Checking allowed emails...</pre>
+        </article>
+
+        <article class="panel">
+          <h2>Allowed users</h2>
+          <pre id="allowedEmails">Loading...</pre>
+        </article>
+      </section>
+
+      <section id="appShell" hidden>
+        <section class="grid two-up">
         <article class="panel selector">
-          <h2>Select client</h2>
+          <h2>Your client</h2>
           <div id="clientList" class="client-list"></div>
         </article>
 
         <article class="panel metrics">
           <h2>KME status</h2>
           <pre id="kmeStatus">Loading...</pre>
-          <h3>Gmail connections</h3>
-          <pre id="gmailStatus">Loading...</pre>
         </article>
-      </section>
+        </section>
 
-      <section class="grid workbench">
+        <section class="grid workbench">
         <article class="panel">
           <h2>Compose</h2>
           <form id="composeForm">
-            <label>Sender
-              <select id="senderClientCode" name="senderClientCode"></select>
+            <label>Signed in as
+              <input id="senderEmail" name="senderEmail" readonly />
             </label>
-            <label>Recipient
-              <select id="recipientClientCode" name="recipientClientCode"></select>
+            <label>Recipient email
+              <input id="recipientEmail" name="recipientEmail" type="email" required />
             </label>
             <label>Subject
               <input id="subject" name="subject" required />
@@ -69,7 +88,7 @@
         <article class="panel">
           <h2>Inbox</h2>
           <div class="inline-actions">
-            <select id="inboxClientCode"></select>
+            <input id="inboxIdentity" readonly />
             <button id="refreshInboxBtn">Refresh inbox</button>
           </div>
           <div id="inboxList" class="inbox-list"></div>
@@ -80,15 +99,23 @@
           <p>Click <strong>Check email</strong> on any inbox message to decrypt it instantly.</p>
           <pre id="decryptResult">No email opened yet.</pre>
         </article>
-      </section>
+        </section>
 
-      <section class="panel">
-        <h2>Developer key pool</h2>
-        <button id="refreshPoolBtn">Refresh key pool</button>
-        <pre id="keyPool"></pre>
+        <section id="adminPanel" class="panel" hidden>
+          <h2>Admin tools</h2>
+          <div class="admin-actions">
+            <button id="bootstrapBtn" type="button">Bootstrap demo data</button>
+            <button id="refreshPoolBtn" type="button">Refresh key pool</button>
+          </div>
+          <h3>Gmail connections</h3>
+          <pre id="gmailStatus">Loading...</pre>
+          <h2>Developer key pool</h2>
+          <pre id="keyPool"></pre>
+        </section>
       </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="/app.js"></script>
   </body>
 </html>

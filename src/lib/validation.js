@@ -36,3 +36,15 @@ export const decryptSchema = z.object({
   viewerClientCode: z.enum(["client1", "client2"]),
   messageId: z.string().min(1)
 });
+
+export const authenticatedComposeSchema = z.object({
+  recipientEmail: z.email().max(320),
+  subject: z.string().min(1).max(250),
+  body: z.string().min(1),
+  securityLevel: z.enum(["STANDARD", "QUANTUM_AES", "QUANTUM_OTP"]),
+  transportMode: z.enum(["INTERNAL", "GMAIL"]).default("INTERNAL")
+});
+
+export const authenticatedDecryptSchema = z.object({
+  messageId: z.string().min(1)
+});

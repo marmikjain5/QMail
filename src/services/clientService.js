@@ -8,6 +8,10 @@ const DEFAULT_CLIENTS = [
 
 const DEFAULT_CLIENTS_BY_CODE = new Map(DEFAULT_CLIENTS.map((client) => [client.code, client]));
 
+function normalizeEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 export async function ensureDefaultClients() {
   const supabase = getSupabase();
 
@@ -79,4 +83,23 @@ export async function getClientById(id) {
   if (error) throw new AppError(`Unknown client id: ${id}`, 404);
   const hydrated = await withConnectedEmails([data]);
   return hydrated[0];
+}
+
+export async function getClientByEmail(email) {
+  const normalizedEmail = normalizeEmail(email);
+  const clients = await listClients();
+  const client = clients.find((entry) => normalizeEmail(entry.email_address) === normalizedEmail);
+  if (!client) {
+    throw new AppError(`No allowed QuMail client matches ${email}.`, 403);
+  }
+  return client;
+}
+
+export async function getAllowedLoginEmails() {
+  const clients = await listClients();
+  return clients
+    .map((client) => client.connected_email_address || client.email_address)
+    .filter(Boolean)
+    .map(normalizeEmail)
+    .filter((value, index, list) => list.indexOf(value) === index);
 }

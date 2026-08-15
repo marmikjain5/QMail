@@ -37,3 +37,9 @@ export function assertCoreEnv() {
     throw new Error("APP_MASTER_KEY must be a 64-character hex string.");
   }
 }
+
+export function assertBrowserAuthEnv() {
+  if (!env.SUPABASE_ANON_KEY) {
+    throw new Error("Missing required environment variable: SUPABASE_ANON_KEY");
+  }
+}

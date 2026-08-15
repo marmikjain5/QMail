@@ -32,33 +32,44 @@ This implementation follows the spirit of `prd.md` and `PRD2.md`, while making t
 npm install
 ```
 
-5. Start the app:
+5. In Supabase Auth, enable Magic Link email login and add `APP_BASE_URL` to your redirect URLs.
+6. Make sure your two approved Gmail test users are connected in QuMail so their Gmail addresses map to `client1` and `client2`.
+7. Start the app:
 
 ```bash
 npm run dev
 ```
 
-6. Open `http://localhost:3000`
-7. Click `Bootstrap demo data` to create Alice, Bob, and the initial key pool
+8. Open `http://localhost:3000`
+9. Click `Bootstrap demo data` to create Alice, Bob, and the initial key pool
+10. Log in with one of the two approved Gmail addresses and use the magic link from that inbox
 
 ## Core API
 
 - `POST /api/v1/admin/bootstrap`
 - `GET /api/v1/clients`
+- `GET /api/v1/config/public`
+- `GET /api/v1/auth/allowed-emails`
+- `GET /api/v1/me`
 - `GET /api/v1/qkm/status`
 - `GET /api/v1/admin/key-pool`
 - `POST /api/v1/qkm/keys/reserve`
 - `POST /api/v1/qkm/keys/get_key`
 - `POST /api/v1/qumail/messages/send`
+- `POST /api/v1/me/messages/send`
 - `GET /api/v1/qumail/messages/:clientCode`
+- `GET /api/v1/me/messages`
 - `POST /api/v1/qumail/messages/decrypt`
+- `POST /api/v1/me/messages/decrypt`
 - `GET /api/v1/providers/gmail/auth-url/:clientCode`
+- `GET /api/v1/me/gmail/auth-url`
 - `GET /api/v1/providers/gmail/oauth/callback`
 - `GET /api/v1/providers/gmail/status`
 
 ## Notes
 
 - Raw KME key material is never returned to the frontend.
+- Browser login uses Supabase magic-link auth, but the crypto/key flow still stays on the original `client1`/`client2` pair.
 - Gmail carries only the encrypted QuMail envelope.
 - OTP mode is intentionally limited to message-body encryption in this prototype.
 - The future QKD simulator only needs to replace the key seeding source, not the app-layer flow.

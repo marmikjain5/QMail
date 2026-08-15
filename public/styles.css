@@ -13,6 +13,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
@@ -107,6 +111,21 @@ form button,
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.actions span,
+.inline-actions input {
+  flex: 1;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.admin-actions button {
+  margin-top: 0;
 }
 
 .client-list,
