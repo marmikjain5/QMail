@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuMail</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Quantum-ready secure messaging</p>
+        <h1>QuMail</h1>
+        <p class="lede">Application-layer encrypted email with mock quantum key pools today and QKD-ready KME boundaries for later.</p>
+        <div class="actions">
+          <button id="bootstrapBtn">Bootstrap demo data</button>
+          <span id="bootstrapStatus"></span>
+        </div>
+      </section>
+
+      <section class="grid two-up">
+        <article class="panel selector">
+          <h2>Select client</h2>
+          <div id="clientList" class="client-list"></div>
+        </article>
+
+        <article class="panel metrics">
+          <h2>KME status</h2>
+          <pre id="kmeStatus">Loading...</pre>
+          <h3>Gmail connections</h3>
+          <pre id="gmailStatus">Loading...</pre>
+        </article>
+      </section>
+
+      <section class="grid workbench">
+        <article class="panel">
+          <h2>Compose</h2>
+          <form id="composeForm">
+            <label>Sender
+              <select id="senderClientCode" name="senderClientCode"></select>
+            </label>
+            <label>Recipient
+              <select id="recipientClientCode" name="recipientClientCode"></select>
+            </label>
+            <label>Subject
+              <input id="subject" name="subject" required />
+            </label>
+            <label>Message
+              <textarea id="body" name="body" rows="7" required></textarea>
+            </label>
+            <label>Security level
+              <select id="securityLevel" name="securityLevel">
+                <option value="STANDARD">Level 1 - Standard</option>
+                <option value="QUANTUM_AES" selected>Level 2 - Quantum-AES</option>
+                <option value="QUANTUM_OTP">Level 3 - Quantum-OTP</option>
+              </select>
+            </label>
+            <label>Transport
+              <select id="transportMode" name="transportMode">
+                <option value="INTERNAL" selected>Internal demo inbox</option>
+                <option value="GMAIL">Gmail API</option>
+              </select>
+            </label>
+            <button type="submit">Send encrypted message</button>
+          </form>
+          <pre id="composeResult"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Inbox</h2>
+          <div class="inline-actions">
+            <select id="inboxClientCode"></select>
+            <button id="refreshInboxBtn">Refresh inbox</button>
+          </div>
+          <div id="inboxList" class="inbox-list"></div>
+        </article>
+
+        <article class="panel">
+          <h2>Decrypted email</h2>
+          <p>Click <strong>Check email</strong> on any inbox message to decrypt it instantly.</p>
+          <pre id="decryptResult">No email opened yet.</pre>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Developer key pool</h2>
+        <button id="refreshPoolBtn">Refresh key pool</button>
+        <pre id="keyPool"></pre>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
