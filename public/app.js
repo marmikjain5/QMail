@@ -15,7 +15,11 @@ function escapeHtml(value) {
 }
 
 async function api(path, options = {}, requiresAuth = false) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  const isFormData = options.body instanceof FormData;
+  const headers = { ...(options.headers || {}) };
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
   if (requiresAuth) {
     const token = session?.access_token;
     if (!token) {
@@ -150,6 +154,58 @@ function renderDecryptResult(data) {
       </dl>
       <div class="result-body">${escapeHtml(data.decryptedBody ?? "")}</div>
     </div>`;
+
+  // Render attachments
+  const section = document.getElementById("attachmentsSection");
+  const list = document.getElementById("attachmentsList");
+  if (!section || !list) return;
+
+  const attachments = data.attachments || [];
+  if (attachments.length === 0) {
+    section.hidden = true;
+    list.innerHTML = "";
+    return;
+  }
+
+  section.hidden = false;
+  list.innerHTML = attachments.map(att => {
+    const sizeKb = (att.byte_size / 1024).toFixed(1);
+    const downloadUrl = `/api/v1/me/messages/${encodeURIComponent(data.messageId)}/attachments/${encodeURIComponent(att.id)}/download`;
+    return `<li class="attachment-item">
+      <span class="attachment-icon">📄</span>
+      <span class="attachment-name">${escapeHtml(att.filename)}</span>
+      <span class="attachment-size muted-text">${sizeKb} KB</span>
+      <a class="attachment-download btn-link" href="${downloadUrl}" download="${escapeHtml(att.filename)}" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}">
+        ⬇ Download (decrypted)
+      </a>
+    </li>`;
+  }).join("");
+
+  // Intercept download links to inject auth token
+  list.querySelectorAll(".attachment-download").forEach(link => {
+    link.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const token = session?.access_token;
+      if (!token) { alert("Please log in first."); return; }
+      try {
+        const resp = await fetch(link.href, { headers: { Authorization: `Bearer ${token}` } });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: "Download failed" }));
+          alert(err.error || "Download failed");
+          return;
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = link.dataset.filename || link.download;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
 }
 
 function renderAllowedEmailsList() {
@@ -299,6 +355,8 @@ function renderCurrentClient() {
 
 async function checkEmail(messageId) {
   setText("decryptResult", "Decrypting email...");
+  const section = document.getElementById("attachmentsSection");
+  if (section) section.hidden = true;
   try {
     const result = await api("/api/v1/me/messages/decrypt", {
       method: "POST",
@@ -491,17 +549,48 @@ document.getElementById("adminToggleBtn").addEventListener("click", async () => 
   }
 });
 
+// ── Attach files preview ──────────────────────────────────────
+const attachFilesInput = document.getElementById("attachFiles");
+const attachPreview = document.getElementById("attachPreview");
+
+if (attachFilesInput && attachPreview) {
+  attachFilesInput.addEventListener("change", () => {
+    attachPreview.innerHTML = "";
+    Array.from(attachFilesInput.files).forEach(file => {
+      const li = document.createElement("li");
+      li.className = "attach-preview-item";
+      const sizeKb = (file.size / 1024).toFixed(1);
+      li.innerHTML = `<span class="attach-file-icon">📄</span><span class="attach-file-name">${escapeHtml(file.name)}</span><span class="attach-file-size muted-text">${sizeKb} KB</span>`;
+      attachPreview.appendChild(li);
+    });
+  });
+}
+
 document.getElementById("composeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    const form = new FormData(event.currentTarget);
-    const payload = Object.fromEntries(form.entries());
+    const form = event.currentTarget;
+    const formData = new FormData();
+    // Append text fields
+    formData.append("recipientEmail", form.recipientEmail.value);
+    formData.append("subject", form.subject.value);
+    formData.append("body", form.body.value);
+    formData.append("securityLevel", form.securityLevel.value);
+    formData.append("transportMode", form.transportMode.value);
+    // Append files
+    const files = document.getElementById("attachFiles")?.files || [];
+    for (const file of files) {
+      formData.append("files", file, file.name);
+    }
     const result = await api("/api/v1/me/messages/send", {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: formData
     }, true);
     renderComposeResult(result);
     setText("decryptResult", "No email opened yet.");
+    // Reset attachments
+    if (attachFilesInput) attachFilesInput.value = "";
+    if (attachPreview) attachPreview.innerHTML = "";
     await loadInbox();
     await loadKeyPool();
   } catch (error) {

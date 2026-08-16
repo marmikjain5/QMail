@@ -15,6 +15,7 @@
     "express": "^5.1.0",
     "googleapis": "^144.0.0",
     "mime-types": "^2.1.35",
+    "multer": "^2.2.0",
     "zod": "^4.1.5"
   }
 }

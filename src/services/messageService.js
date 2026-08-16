@@ -1,15 +1,16 @@
-import { decryptMessageAes, decryptOtp, encryptMessageAes, randomId, xorWithOtp } from "../lib/crypto.js";
+import { decryptMessageAes, decryptOtp, encryptMessageAes, randomId, randomKeyBase64, xorWithOtp } from "../lib/crypto.js";
 import { AppError, mapSupabaseError } from "../lib/errors.js";
 import { getSupabase } from "../lib/supabase.js";
 import { getClientByCode, getClientByEmail, getClientById } from "./clientService.js";
 import { consumeKey, reserveKey, retrievePeerKey } from "./kmeService.js";
 import { sendViaGmail } from "./mailService.js";
+import { saveEncryptedAttachment, listAttachments } from "./attachmentService.js";
 
 function subjectAad(messageId, sender, recipient, securityLevel) {
   return JSON.stringify({ messageId, sender, recipient, securityLevel });
 }
 
-export async function sendMessage({ senderClientCode, recipientClientCode, subject, body, securityLevel, transportMode }) {
+export async function sendMessage({ senderClientCode, recipientClientCode, subject, body, securityLevel, transportMode, attachments = [] }) {
   const sender = await getClientByCode(senderClientCode);
   const recipient = await getClientByCode(recipientClientCode);
   const supabase = getSupabase();
@@ -129,6 +130,41 @@ export async function sendMessage({ senderClientCode, recipientClientCode, subje
   });
   if (error) throw mapSupabaseError(error, "Failed to save message.");
 
+  // Fetch the newly-created row's UUID so we can link attachments
+  const { data: msgRow } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("message_id", messageId)
+    .single();
+
+  // Encrypt and store each attachment using the same AES key (or a random key for STANDARD)
+  if (attachments.length > 0 && msgRow) {
+    const attachmentKey = reservedKey?.keyMaterialBase64 || null;
+    // For STANDARD messages, generate a one-time random AES key for attachments
+    // and embed it in the envelope so recipient can decrypt
+    let finalAttachKey = attachmentKey;
+    let ephemeralAttachKeyBase64 = null;
+    if (!finalAttachKey) {
+      ephemeralAttachKeyBase64 = randomKeyBase64(32);
+      finalAttachKey = ephemeralAttachKeyBase64;
+      // Store it in the envelope for the recipient
+      envelope.attachmentKey = ephemeralAttachKeyBase64;
+    }
+    for (const att of attachments) {
+      await saveEncryptedAttachment({
+        messageRowId: msgRow.id,
+        filename: att.filename,
+        mimeType: att.mimeType,
+        fileBuffer: att.buffer,
+        keyBase64: finalAttachKey
+      });
+    }
+    // If we stored the key in the envelope, persist updated package_json
+    if (ephemeralAttachKeyBase64) {
+      await supabase.from("messages").update({ package_json: envelope }).eq("id", msgRow.id);
+    }
+  }
+
   if (reservedKey?.keyId) {
     await consumeKey({
       keyId: reservedKey.keyId,
@@ -172,8 +208,19 @@ export async function decryptMessageForViewer({ viewerClientCode, messageId }) {
   if (error) throw new AppError(`Message ${messageId} not found for ${viewerClientCode}.`, 404);
 
   const envelope = data.package_json;
+  const attachments = await listAttachments(data.id);
+
   if (data.encryption_mode === "STANDARD") {
-    return { messageId, decryptedSubject: envelope.payload.subject, decryptedBody: envelope.payload.body, keyId: null };
+    return {
+      messageId,
+      decryptedSubject: envelope.payload.subject,
+      decryptedBody: envelope.payload.body,
+      keyId: null,
+      attachments,
+      // For STANDARD, attachments use an ephemeral key stored in envelope
+      attachmentKeyId: null,
+      attachmentKeyBase64: envelope.attachmentKey || null
+    };
   }
 
   const key = await retrievePeerKey({ ownerClientCode: viewerClientCode, keyId: data.key_id });
@@ -195,7 +242,7 @@ export async function decryptMessageForViewer({ viewerClientCode, messageId }) {
       authTagBase64: envelope.crypto.authTag,
       aad
     });
-    return { messageId, decryptedSubject, decryptedBody, keyId: key.keyId };
+    return { messageId, decryptedSubject, decryptedBody, keyId: key.keyId, attachments, attachmentKeyBase64: key.keyMaterialBase64 };
   }
 
   const decryptedBody = decryptOtp({
@@ -207,11 +254,13 @@ export async function decryptMessageForViewer({ viewerClientCode, messageId }) {
     messageId,
     decryptedSubject: envelope.payload.subject,
     decryptedBody,
-    keyId: key.keyId
+    keyId: key.keyId,
+    attachments,
+    attachmentKeyBase64: key.keyMaterialBase64
   };
 }
 
-export async function sendMessageAsUser({ senderEmail, recipientEmail, subject, body, securityLevel, transportMode }) {
+export async function sendMessageAsUser({ senderEmail, recipientEmail, subject, body, securityLevel, transportMode, attachments = [] }) {
   const sender = await getClientByEmail(senderEmail);
   const recipient = await getClientByEmail(recipientEmail);
   return sendMessage({
@@ -220,7 +269,8 @@ export async function sendMessageAsUser({ senderEmail, recipientEmail, subject, 
     subject,
     body,
     securityLevel,
-    transportMode
+    transportMode,
+    attachments
   });
 }
 

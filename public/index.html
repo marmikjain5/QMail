@@ -84,6 +84,14 @@
                 <option value="GMAIL">Gmail API</option>
               </select>
             </label>
+            <div class="attach-area">
+              <label class="attach-label" for="attachFiles">
+                <span class="attach-icon">📎</span>
+                <span>Attach files</span>
+                <input id="attachFiles" type="file" multiple style="display:none" />
+              </label>
+              <ul id="attachPreview" class="attach-preview"></ul>
+            </div>
             <button type="submit">Send encrypted message</button>
           </form>
           <pre id="composeResult"></pre>
@@ -101,7 +109,11 @@
         <article class="panel">
           <h2>Decrypted email</h2>
           <p>Click <strong>Check email</strong> on any inbox message to decrypt it instantly.</p>
-          <pre id="decryptResult">No email opened yet.</pre>
+          <div id="decryptResult">No email opened yet.</div>
+          <div id="attachmentsSection" hidden>
+            <h3 class="attachments-heading">🔓 Decrypted Attachments</h3>
+            <ul id="attachmentsList" class="attachments-list"></ul>
+          </div>
         </article>
         </section>
 

@@ -1,6 +1,7 @@
 import { getAuthenticatedUser } from "../lib/auth.js";
 import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
+import multer from "multer";
 import {
   validate,
   composeSchema,
@@ -15,6 +16,9 @@ import { seedMockKeys } from "../services/keySeederService.js";
 import { getKmeStatus, listKeyPool, reserveKey, retrievePeerKey } from "../services/kmeService.js";
 import { getGmailAuthUrl, getGmailConnectionStatus, storeGmailTokens } from "../services/mailService.js";
 import { decryptMessageForUser, decryptMessageForViewer, listMessagesForClient, listMessagesForUser, sendMessage, sendMessageAsUser } from "../services/messageService.js";
+import { getDecryptedAttachment } from "../services/attachmentService.js";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 export function registerRoutes(app) {
   app.get("/api/v1/health", (_req, res) => {
@@ -166,13 +170,20 @@ export function registerRoutes(app) {
     res.json(await listMessagesForUser(user.email));
   }));
 
-  app.post("/api/v1/me/messages/send", asyncHandler(async (req, res) => {
+  // Send message with optional file attachments (multipart/form-data)
+  app.post("/api/v1/me/messages/send", upload.array("files", 10), asyncHandler(async (req, res) => {
     await ensureDefaultClients();
     const user = await getAuthenticatedUser(req);
     const payload = validate(authenticatedComposeSchema, req.body);
+    const attachments = (req.files || []).map(f => ({
+      filename: f.originalname,
+      mimeType: f.mimetype,
+      buffer: f.buffer
+    }));
     const result = await sendMessageAsUser({
       senderEmail: user.email,
-      ...payload
+      ...payload,
+      attachments
     });
     res.json({
       messageId: result.messageId,
@@ -193,6 +204,23 @@ export function registerRoutes(app) {
     const user = await getAuthenticatedUser(req);
     const payload = validate(authenticatedDecryptSchema, req.body);
     res.json(await decryptMessageForUser({ email: user.email, messageId: payload.messageId }));
+  }));
+
+  // Download a decrypted attachment — key is derived from the message decrypt result
+  app.get("/api/v1/me/messages/:messageId/attachments/:attachmentId/download", asyncHandler(async (req, res) => {
+    await ensureDefaultClients();
+    const user = await getAuthenticatedUser(req);
+    // Re-decrypt the message to get the attachment key
+    const decryptResult = await decryptMessageForUser({ email: user.email, messageId: req.params.messageId });
+    const keyBase64 = decryptResult.attachmentKeyBase64;
+    if (!keyBase64) {
+      return res.status(400).json({ error: "No attachment key available for this message." });
+    }
+    const { filename, mimeType, buffer } = await getDecryptedAttachment(req.params.attachmentId, keyBase64);
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", mimeType || "application/octet-stream");
+    res.setHeader("Content-Length", buffer.length);
+    res.send(buffer);
   }));
 
   app.get("/api/v1/providers/gmail/auth-url/:clientCode", asyncHandler(async (req, res) => {
