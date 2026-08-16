@@ -43,6 +43,156 @@ function setText(id, value) {
   }
 }
 
+// ── Rich display helpers (visual only, no logic changes) ──────
+
+function statusBadge(value) {
+  const v = String(value).toUpperCase();
+  const cls = v === "AVAILABLE" ? "badge badge--success"
+    : v === "CONSUMED" || v === "RESERVED" ? "badge badge--muted"
+    : "badge";
+  return `<span class="${cls}">${escapeHtml(value)}</span>`;
+}
+
+function renderKmeStatus(data) {
+  const el = document.getElementById("kmeStatus");
+  if (!el) return;
+  if (typeof data === "string") { el.textContent = data; return; }
+  const byStatus = data.byStatus || {};
+  const byAlgo = data.byAlgorithm || {};
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-value">${escapeHtml(String(data.total ?? 0))}</div>
+        <div class="stat-label">Total keys</div>
+      </div>
+      ${Object.entries(byStatus).map(([k, v]) => `
+      <div class="stat-card">
+        <div class="stat-value">${escapeHtml(String(v))}</div>
+        <div class="stat-label">${escapeHtml(k)}</div>
+      </div>`).join("")}
+      ${Object.entries(byAlgo).map(([k, v]) => `
+      <div class="stat-card">
+        <div class="stat-value">${escapeHtml(String(v))}</div>
+        <div class="stat-label">${escapeHtml(k)}</div>
+      </div>`).join("")}
+    </div>`;
+}
+
+function renderKeyPool(data) {
+  const el = document.getElementById("keyPool");
+  if (!el) return;
+  if (typeof data === "string") { el.textContent = data; return; }
+  if (!Array.isArray(data) || !data.length) {
+    el.innerHTML = `<p class="info-empty">No keys in pool.</p>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Key ID</th>
+            <th>Algorithm</th>
+            <th>Status</th>
+            <th>Size</th>
+            <th>Source</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(row => `<tr>
+            <td class="mono truncate" title="${escapeHtml(row.key_id)}">${escapeHtml(row.key_id)}</td>
+            <td>${statusBadge(row.algorithm_usage)}</td>
+            <td>${statusBadge(row.status)}</td>
+            <td>${escapeHtml(String(row.key_size_bytes))}B</td>
+            <td>${escapeHtml(row.source_type || "—")}</td>
+            <td class="muted-text">${row.created_at ? new Date(row.created_at).toLocaleString() : "—"}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderComposeResult(data) {
+  const el = document.getElementById("composeResult");
+  if (!el) return;
+  if (typeof data === "string") { el.textContent = data; return; }
+  const rows = [
+    ["Message ID", data.messageId],
+    ["Key ID", data.keyId || "n/a (Standard)"],
+    ["Security level", data.securityLevel],
+    ["Transport", data.transportMode],
+    data.transportMessageId ? ["Transport message ID", data.transportMessageId] : null
+  ].filter(Boolean);
+  el.innerHTML = `
+    <div class="result-card result-card--success">
+      <div class="result-card__title">Message sent</div>
+      <dl class="result-dl">
+        ${rows.map(([k, v]) => `<div class="result-dl__row"><dt>${escapeHtml(k)}</dt><dd class="mono">${escapeHtml(String(v))}</dd></div>`).join("")}
+      </dl>
+    </div>`;
+}
+
+function renderDecryptResult(data) {
+  const el = document.getElementById("decryptResult");
+  if (!el) return;
+  if (typeof data === "string") { el.textContent = data; return; }
+  const rows = [
+    ["Message ID", data.messageId],
+    ["Key ID", data.keyId || "n/a"],
+    ["Subject", data.decryptedSubject]
+  ];
+  el.innerHTML = `
+    <div class="result-card">
+      <div class="result-card__title">Decrypted message</div>
+      <dl class="result-dl">
+        ${rows.map(([k, v]) => `<div class="result-dl__row"><dt>${escapeHtml(k)}</dt><dd class="mono">${escapeHtml(String(v ?? ""))}</dd></div>`).join("")}
+      </dl>
+      <div class="result-body">${escapeHtml(data.decryptedBody ?? "")}</div>
+    </div>`;
+}
+
+function renderAllowedEmailsList() {
+  const el = document.getElementById("allowedEmails");
+  if (!el) return;
+  if (!allowedEmails.length) {
+    el.innerHTML = `<p class="info-empty">No allowed Gmail users found yet. Connect the two Gmail accounts first.</p>`;
+    return;
+  }
+  el.innerHTML = `<div class="email-pill-list">${allowedEmails.map(e => `<span class="email-pill">${escapeHtml(e)}</span>`).join("")}</div>`;
+}
+
+function renderGmailStatusDisplay(status) {
+  const el = document.getElementById("gmailStatus");
+  if (!el) return;
+  if (typeof status === "string") { el.textContent = status; return; }
+  if (!Array.isArray(status) || !status.length) {
+    el.innerHTML = `<p class="info-empty">No Gmail accounts connected.</p>`;
+    return;
+  }
+  el.innerHTML = `<div class="gmail-account-list">${status.map(account => {
+    const owner = account.client_name && account.client_code
+      ? `${account.client_name} (${account.client_code})`
+      : account.client_code || account.client_name || account.client_id;
+    const expiry = account.token_expiry
+      ? `Token expires ${new Date(account.token_expiry).toLocaleString()}`
+      : "Token expiry unavailable";
+    return `<div class="gmail-account-row">
+      <div class="gmail-account-owner">${escapeHtml(owner)}</div>
+      <div class="gmail-account-email">${escapeHtml(account.provider_account_email)}</div>
+      <div class="gmail-account-expiry muted-text">${escapeHtml(expiry)}</div>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function renderBootstrapStatus(data) {
+  const el = document.getElementById("bootstrapStatus");
+  if (!el) return;
+  if (!data && data !== 0) { el.textContent = ""; return; }
+  const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  el.innerHTML = `<span class="status-pill">${escapeHtml(text)}</span>`;
+}
+
 function toggleApp(isLoggedIn) {
   document.getElementById("authPanel").hidden = isLoggedIn;
   document.getElementById("appShell").hidden = !isLoggedIn;
@@ -118,11 +268,7 @@ function formatDecryptedEmail(result) {
 }
 
 function renderAllowedEmails() {
-  if (!allowedEmails.length) {
-    setText("allowedEmails", "No allowed Gmail users found yet. Connect the two Gmail accounts first.");
-    return;
-  }
-  setText("allowedEmails", allowedEmails.join("\n"));
+  renderAllowedEmailsList();
 }
 
 function renderCurrentClient() {
@@ -158,7 +304,7 @@ async function checkEmail(messageId) {
       method: "POST",
       body: JSON.stringify({ messageId })
     }, true);
-    setText("decryptResult", formatDecryptedEmail(result));
+    renderDecryptResult(result);
   } catch (error) {
     setText("decryptResult", error.message);
   }
@@ -198,14 +344,14 @@ async function loadInbox() {
 }
 
 async function loadStatus() {
-  setText("kmeStatus", await api("/api/v1/qkm/status"));
+  renderKmeStatus(await api("/api/v1/qkm/status"));
   if (adminMode) {
-    setText("gmailStatus", formatGmailStatus(await api("/api/v1/providers/gmail/status")));
+    renderGmailStatusDisplay(await api("/api/v1/providers/gmail/status"));
   }
 }
 
 async function loadKeyPool() {
-  setText("keyPool", await api("/api/v1/admin/key-pool"));
+  renderKeyPool(await api("/api/v1/admin/key-pool"));
 }
 
 async function loadMe() {
@@ -284,7 +430,7 @@ async function loadAllowedEmails() {
 document.getElementById("bootstrapBtn").addEventListener("click", async () => {
   try {
     const result = await api("/api/v1/admin/bootstrap", { method: "POST" });
-    setText("bootstrapStatus", result);
+    renderBootstrapStatus(result?.result || result);
     await loadAllowedEmails();
     if (session) {
       await refreshAuthenticatedView();
@@ -292,7 +438,7 @@ document.getElementById("bootstrapBtn").addEventListener("click", async () => {
       await loadStatus().catch(() => {});
     }
   } catch (error) {
-    setText("bootstrapStatus", error.message);
+    renderBootstrapStatus(error.message);
   }
 });
 
@@ -325,7 +471,7 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
     return;
   }
   await supabaseClient.auth.signOut();
-  setText("bootstrapStatus", "Logged out.");
+  renderBootstrapStatus("Logged out.");
 });
 
 document.getElementById("adminToggleBtn").addEventListener("click", async () => {
@@ -354,7 +500,7 @@ document.getElementById("composeForm").addEventListener("submit", async (event) 
       method: "POST",
       body: JSON.stringify(payload)
     }, true);
-    setText("composeResult", result);
+    renderComposeResult(result);
     setText("decryptResult", "No email opened yet.");
     await loadInbox();
     await loadKeyPool();
