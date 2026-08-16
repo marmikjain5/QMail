@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: qumail_postgres
+    environment:
+      POSTGRES_USER: qumail
+      POSTGRES_PASSWORD: qumail
+      POSTGRES_DB: qumail
+    ports:
+      - '5432:5432'
+    volumes:
+      - qumail_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U qumail']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: qumail_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@qumail.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  qumail_postgres_data:
+    driver: local

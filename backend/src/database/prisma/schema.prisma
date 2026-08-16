@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  GMAIL
+  MICROSOFT
+}
+
+enum KeyStatus {
+  AVAILABLE
+  RESERVED
+  CONSUMED
+  EXPIRED
+  INVALID
+}
+
+enum SecurityLevel {
+  STANDARD
+  QUANTUM_AES
+  QUANTUM_OTP
+}
+
+enum ChannelState {
+  HEALTHY
+  TURBULENCE
+  ANOMALOUS
+  DEAD
+}
+
+// ---------------------------------------------------------------------------
+// Users & Accounts
+// ---------------------------------------------------------------------------
+
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  displayName       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  connectedAccounts ConnectedAccount[]
+  messageMetadata   MessageMetadata[]
+  securityEvents    SecurityEvent[]
+}
+
+model ConnectedAccount {
+  id                    String   @id @default(uuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider              Provider
+  providerUserId        String
+  emailAddress          String
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String
+  tokenExpiresAt        DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId, emailAddress])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Quantum Key Registry
+// ---------------------------------------------------------------------------
+
+model QuantumKey {
+  id                   String      @id @default(uuid())
+  keyId                String      @unique
+  sourceNode           String
+  targetNode           String
+  keyMaterialEncrypted Bytes
+  lengthBits           Int
+  status               KeyStatus   @default(AVAILABLE)
+  securityLevel        Int         // 2 = AES, 3 = OTP
+  purpose              String?
+  reservedAt           DateTime?
+  consumedAt           DateTime?
+  expiresAt            DateTime
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  messageMetadata MessageMetadata[]
+
+  @@index([sourceNode, targetNode, status])
+  @@index([keyId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Messages
+// ---------------------------------------------------------------------------
+
+model MessageMetadata {
+  id                String        @id @default(uuid())
+  providerMessageId String
+  userId            String
+  user              User          @relation(fields: [userId], references: [id])
+  securityLevel     SecurityLevel
+  keyId             String?
+  quantumKey        QuantumKey?   @relation(fields: [keyId], references: [keyId])
+  ivBase64          String?
+  authTagBase64     String?
+  macTagBase64      String?
+  qumailVersion     String
+  envelopeJson      String?       @db.Text
+  createdAt         DateTime      @default(now())
+
+  attachments Attachment[]
+
+  @@index([userId])
+  @@index([providerMessageId])
+}
+
+// ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+model Attachment {
+  id                String           @id @default(uuid())
+  attachmentId      String           @unique
+  messageMetadataId String?
+  messageMetadata   MessageMetadata? @relation(fields: [messageMetadataId], references: [id])
+  ipfsCid           String
+  sha256Hash        String
+  sizeBytes         BigInt
+  encryptedKeyId    String?
+  blockchainTxHash  String?
+  blockchainBlockNum BigInt?
+  createdAt         DateTime         @default(now())
+
+  @@index([attachmentId])
+  @@index([ipfsCid])
+}
+
+// ---------------------------------------------------------------------------
+// QKD Telemetry & Monitoring
+// ---------------------------------------------------------------------------
+
+model QkdTelemetryLog {
+  id                  BigInt       @id @default(autoincrement())
+  sourceNode          String
+  targetNode          String
+  qber                Float
+  photonLossDb        Float
+  photonDetectionRate Float
+  rawKeyRateBps       Int
+  secretKeyRateBps    Int
+  channelState        ChannelState @default(HEALTHY)
+  anomalyDetected     Boolean      @default(false)
+  anomalyScore        Float?
+  anomalyClassification String?
+  anomalyCause        String?
+  shapExplanation     String?      @db.Text
+  privacyAmplificationActive Boolean @default(false)
+  privacyAmplificationRatio Float?
+  recordedAt          DateTime     @default(now())
+
+  @@index([recordedAt(sort: Desc)])
+  @@index([sourceNode, targetNode])
+  @@index([anomalyDetected])
+}
+
+// ---------------------------------------------------------------------------
+// Security Events
+// ---------------------------------------------------------------------------
+
+model SecurityEvent {
+  id          String   @id @default(uuid())
+  eventType   String
+  severity    String   // INFO | WARNING | CRITICAL
+  description String
+  metadata    String?  @db.Text
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([severity])
+  @@index([userId])
+}
