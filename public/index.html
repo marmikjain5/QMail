@@ -26,7 +26,17 @@
       <section id="authPanel" class="grid two-up">
         <article class="panel">
           <h2>Login</h2>
-          <p>Use one of the two approved Gmail addresses already mapped to QuMail. We will email a magic link and keep you signed in on return.</p>
+          <p>Sign in using one of the approved client accounts. For live presentations, use 1-Click Fast Login to open two windows side-by-side.</p>
+          
+          <div class="fast-login-box">
+            <span class="fast-login-badge">⚡ 1-Click Fast Login (Presentation Mode)</span>
+            <div id="fastLoginActions" class="fast-login-buttons">
+              <!-- Dynamically populated with client buttons -->
+            </div>
+          </div>
+
+          <div class="divider-line"><span>or use email magic link</span></div>
+
           <form id="loginForm">
             <label>Email
               <input id="loginEmail" name="email" type="email" placeholder="name@gmail.com" required />
@@ -120,7 +130,7 @@
         <section id="adminPanel" class="panel" hidden>
           <h2>Admin tools</h2>
           <div class="admin-actions">
-            <button id="bootstrapBtn" type="button">Bootstrap demo data</button>
+            <button id="simulateBb84Btn" type="button">Simulate BB84</button>
             <button id="refreshPoolBtn" type="button">Refresh key pool</button>
           </div>
           <h3>Gmail connections</h3>

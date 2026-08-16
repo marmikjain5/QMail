@@ -1,6 +1,8 @@
 import { getAuthenticatedUser } from "../lib/auth.js";
 import { env } from "../lib/env.js";
 import { asyncHandler } from "../lib/http.js";
+import { AppError, mapSupabaseError } from "../lib/errors.js";
+import { getSupabase } from "../lib/supabase.js";
 import multer from "multer";
 import {
   validate,
@@ -11,8 +13,8 @@ import {
   authenticatedComposeSchema,
   authenticatedDecryptSchema
 } from "../lib/validation.js";
-import { ensureDefaultClients, getAllowedLoginEmails, getClientByEmail, listClients } from "../services/clientService.js";
-import { seedMockKeys } from "../services/keySeederService.js";
+import { ensureDefaultClients, getAllowedLoginEmails, getClientByCode, getClientByEmail, listClients } from "../services/clientService.js";
+import { seedMockKeys, simulateBb84KeyPool } from "../services/keySeederService.js";
 import { getKmeStatus, listKeyPool, reserveKey, retrievePeerKey } from "../services/kmeService.js";
 import { getGmailAuthUrl, getGmailConnectionStatus, storeGmailTokens } from "../services/mailService.js";
 import { decryptMessageForUser, decryptMessageForViewer, listMessagesForClient, listMessagesForUser, sendMessage, sendMessageAsUser } from "../services/messageService.js";
@@ -33,9 +35,15 @@ export function registerRoutes(app) {
     });
   });
 
+  app.post("/api/v1/admin/simulate-bb84", asyncHandler(async (_req, res) => {
+    await ensureDefaultClients();
+    const result = await simulateBb84KeyPool({ force: true });
+    res.json({ ok: true, result });
+  }));
+
   app.post("/api/v1/admin/bootstrap", asyncHandler(async (_req, res) => {
     await ensureDefaultClients();
-    const result = await seedMockKeys();
+    const result = await simulateBb84KeyPool({ force: true });
     res.json({ ok: true, result });
   }));
 
@@ -47,6 +55,39 @@ export function registerRoutes(app) {
   app.get("/api/v1/auth/allowed-emails", asyncHandler(async (_req, res) => {
     await ensureDefaultClients();
     res.json({ emails: await getAllowedLoginEmails() });
+  }));
+
+  app.post("/api/v1/auth/fast-login", asyncHandler(async (req, res) => {
+    await ensureDefaultClients();
+    const { email, clientCode } = req.body || {};
+    let targetEmail = email;
+    if (!targetEmail && clientCode) {
+      const client = await getClientByCode(clientCode);
+      targetEmail = client.connected_email_address || client.email_address;
+    }
+    if (!targetEmail) {
+      throw new AppError("Email or clientCode is required for fast login.", 400);
+    }
+
+    const allowed = await getAllowedLoginEmails();
+    const normalized = targetEmail.trim().toLowerCase();
+    if (!allowed.includes(normalized)) {
+      throw new AppError(`Email ${targetEmail} is not in the approved client list.`, 403);
+    }
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "magiclink",
+      email: normalized
+    });
+    if (error) throw mapSupabaseError(error, "Failed to generate fast login session.");
+
+    res.json({
+      ok: true,
+      email: normalized,
+      tokenHash: data.properties.hashed_token,
+      verificationType: data.properties.verification_type || "magiclink"
+    });
   }));
 
   app.get("/api/v1/me", asyncHandler(async (req, res) => {

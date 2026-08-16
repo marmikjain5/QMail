@@ -208,14 +208,70 @@ function renderDecryptResult(data) {
   });
 }
 
+async function fastLoginAs(email) {
+  setText("loginStatus", `Fast logging in as ${email}...`);
+  try {
+    const res = await api("/api/v1/auth/fast-login", {
+      method: "POST",
+      body: JSON.stringify({ email })
+    });
+    const { data, error } = await supabaseClient.auth.verifyOtp({
+      token_hash: res.tokenHash,
+      type: res.verificationType || "magiclink"
+    });
+    if (error) throw error;
+    if (data?.session) {
+      await handleSession(data.session);
+    }
+    setText("loginStatus", `Signed in as ${email}.`);
+  } catch (error) {
+    setText("loginStatus", `Fast login error: ${error.message}`);
+  }
+}
+
 function renderAllowedEmailsList() {
   const el = document.getElementById("allowedEmails");
-  if (!el) return;
+  const actionsEl = document.getElementById("fastLoginActions");
+
   if (!allowedEmails.length) {
-    el.innerHTML = `<p class="info-empty">No allowed Gmail users found yet. Connect the two Gmail accounts first.</p>`;
+    if (el) el.innerHTML = `<p class="info-empty">No allowed Gmail users found yet. Connect the two Gmail accounts first.</p>`;
+    if (actionsEl) actionsEl.innerHTML = `<p class="info-empty">Loading accounts...</p>`;
     return;
   }
-  el.innerHTML = `<div class="email-pill-list">${allowedEmails.map(e => `<span class="email-pill">${escapeHtml(e)}</span>`).join("")}</div>`;
+
+  if (el) {
+    el.innerHTML = `
+      <div class="allowed-users-list">
+        ${allowedEmails.map(e => `
+          <div class="allowed-user-row">
+            <span class="email-pill">${escapeHtml(e)}</span>
+            <button type="button" class="btn-fast-login" data-email="${escapeHtml(e)}">⚡ Fast Login</button>
+          </div>
+        `).join("")}
+      </div>`;
+
+    el.querySelectorAll(".btn-fast-login").forEach(btn => {
+      btn.addEventListener("click", () => fastLoginAs(btn.dataset.email));
+    });
+  }
+
+  if (actionsEl) {
+    actionsEl.innerHTML = allowedEmails.map((email, idx) => {
+      const clientLabel = idx === 0 ? "Client 1 (Alice)" : idx === 1 ? "Client 2 (Bob)" : `Client ${idx + 1}`;
+      return `
+        <button type="button" class="fast-login-btn" data-email="${escapeHtml(email)}">
+          <span class="fast-login-icon">👤</span>
+          <div class="fast-login-meta">
+            <strong>${escapeHtml(clientLabel)}</strong>
+            <small>${escapeHtml(email)}</small>
+          </div>
+        </button>`;
+    }).join("");
+
+    actionsEl.querySelectorAll(".fast-login-btn").forEach(btn => {
+      btn.addEventListener("click", () => fastLoginAs(btn.dataset.email));
+    });
+  }
 }
 
 function renderGmailStatusDisplay(status) {
@@ -245,6 +301,11 @@ function renderBootstrapStatus(data) {
   const el = document.getElementById("bootstrapStatus");
   if (!el) return;
   if (!data && data !== 0) { el.textContent = ""; return; }
+  if (data && typeof data === "object" && data.protocol === "BB84") {
+    const yieldPct = ((data.averageSiftingEfficiency || 0) * 100).toFixed(1);
+    el.innerHTML = `<span class="status-pill">⚡ BB84 Simulated: Established ${data.pairs} key pairs (${data.records} keys: ${data.aesPairs} AES-256 + ${data.otpPairs} OTP) · Sifting Yield: ${yieldPct}%</span>`;
+    return;
+  }
   const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
   el.innerHTML = `<span class="status-pill">${escapeHtml(text)}</span>`;
 }
@@ -461,6 +522,7 @@ async function bootstrapFrontendAuth() {
 
   supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey, {
     auth: {
+      storage: window.sessionStorage,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true
@@ -485,20 +547,30 @@ async function loadAllowedEmails() {
   renderAllowedEmails();
 }
 
-document.getElementById("bootstrapBtn").addEventListener("click", async () => {
-  try {
-    const result = await api("/api/v1/admin/bootstrap", { method: "POST" });
-    renderBootstrapStatus(result?.result || result);
-    await loadAllowedEmails();
-    if (session) {
-      await refreshAuthenticatedView();
-    } else {
-      await loadStatus().catch(() => {});
+const simulateBb84Btn = document.getElementById("simulateBb84Btn") || document.getElementById("bootstrapBtn");
+if (simulateBb84Btn) {
+  simulateBb84Btn.addEventListener("click", async () => {
+    simulateBb84Btn.disabled = true;
+    const prevText = simulateBb84Btn.textContent;
+    simulateBb84Btn.textContent = "Simulating BB84 QKD...";
+    try {
+      const result = await api("/api/v1/admin/simulate-bb84", { method: "POST" });
+      renderBootstrapStatus(result?.result || result);
+      await loadAllowedEmails();
+      if (session) {
+        await refreshAuthenticatedView();
+      } else {
+        await loadStatus().catch(() => {});
+        if (adminMode) await loadKeyPool().catch(() => {});
+      }
+    } catch (error) {
+      renderBootstrapStatus(error.message);
+    } finally {
+      simulateBb84Btn.disabled = false;
+      simulateBb84Btn.textContent = prevText;
     }
-  } catch (error) {
-    renderBootstrapStatus(error.message);
-  }
-});
+  });
+}
 
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
