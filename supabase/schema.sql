@@ -71,6 +71,8 @@ create table if not exists message_attachments (
   ciphertext_b64 text,
   nonce_b64 text,
   auth_tag_b64 text,
+  ipfs_cid text,
+  content_hash text,
   storage_mode text not null default 'INLINE',
   created_at timestamptz not null default now()
 );

@@ -8,21 +8,12 @@ Blockchain registration failed: contract runner does not support sending transac
 Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
 Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
 Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
-code` module is deprecated. Please use a userland alternative instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-QuMail server listening on http://localhost:3000
-Completed running 'src/index.js'
-Restarting 'src/index.js'
-[blockchainService] Module loaded
-[routes] Blockchain service imported, registerAttachment: registerAttachment
-[routes] registerRoutes called
-(node:13392) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-QuMail server listening on http://localhost:3000
-Completed running 'src/index.js'
-Restarting 'src/index.js'
-[blockchainService] Module loaded
-[routes] Blockchain service imported, registerAttachment: registerAttachment
+Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
+Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
+Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
+Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
+Blockchain registration failed: contract runner does not support sending transactions (operation="sendTransaction", code=UNSUPPORTED_OPERATION, version=6.17.0)
+erAttachment
 [routes] registerRoutes called
 (node:24720) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
@@ -175,6 +166,49 @@ Restarting 'src/index.js'
 [routes] Blockchain service imported, registerAttachment: registerAttachment
 [routes] registerRoutes called
 (node:10056) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:24020) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:28448) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:10384) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:25840) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:25044) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 QuMail server listening on http://localhost:3000
 Completed running 'src/index.js'

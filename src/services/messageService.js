@@ -162,13 +162,13 @@ export async function sendMessage({ senderClientCode, recipientClientCode, subje
       });
       // Register on blockchain integrity registry
       const attachmentId = computeAttachmentId(messageId, i);
-      const contentHash = computeContentHash(att.buffer);
+      const contentHash = saved.contentHash || computeContentHash(att.buffer);
       const keyIdHash = computeKeyIdHash(reservedKey?.keyId || ephemeralAttachKeyBase64 || "ephemeral");
       const secLevel = securityLevelToUint8(securityLevel);
-      const ipfsCid = att.ipfsCid || "";
+      const ipfsCid = saved.ipfsCid || "";
       try {
         const regRes = await registerAttachment({ attachmentId, ipfsCid, contentHash, keyIdHash, securityLevel: secLevel });
-        console.log(`[messageService] Registered attachment #${i} (${att.filename}) on blockchain. TX: ${regRes.transactionHash}`);
+        console.log(`[messageService] Registered attachment #${i} (${att.filename}) on blockchain with CID '${ipfsCid}'. TX: ${regRes.transactionHash}`);
       } catch (err) {
         console.error(`[messageService] Blockchain registration failed for attachment #${i} (${att.filename}):`, err.message);
       }

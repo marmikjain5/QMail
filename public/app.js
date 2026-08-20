@@ -183,17 +183,19 @@ function renderDecryptResult(data) {
   list.innerHTML = attachments.map((att, idx) => {
     const sizeKb = (att.byte_size / 1024).toFixed(1);
     const downloadUrl = `/api/v1/me/messages/${encodeURIComponent(data.messageId)}/attachments/${encodeURIComponent(att.id)}/download`;
+    const ipfsCid = att.ipfs_cid || att.ipfsCid || "";
     return `<li class="attachment-item">
       <div class="attachment-info">
         <span class="attachment-icon">📄</span>
         <span class="attachment-name">${escapeHtml(att.filename)}</span>
+        ${ipfsCid ? `<span class="badge badge--purple" title="Pinata IPFS CID: ${escapeHtml(ipfsCid)}">🌐 IPFS</span>` : ''}
         <span class="attachment-size muted-text">${sizeKb} KB</span>
       </div>
       <div class="attachment-actions">
         <a class="attachment-download btn-link" href="${downloadUrl}" download="${escapeHtml(att.filename)}" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}" data-attachment-index="${idx}">
           ⬇ Download
         </a>
-        <button type="button" class="attachment-verify btn-link" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}" data-attachment-index="${idx}" data-download-url="${downloadUrl}" data-filename="${escapeHtml(att.filename)}">
+        <button type="button" class="attachment-verify btn-link" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}" data-attachment-index="${idx}" data-download-url="${downloadUrl}" data-filename="${escapeHtml(att.filename)}" data-ipfs-cid="${escapeHtml(ipfsCid)}">
           🔐 Verify Integrity
         </button>
       </div>
@@ -279,7 +281,7 @@ function renderDecryptResult(data) {
         const ts = (result && result.timestamp && result.timestamp > 0) ? result.timestamp * 1000 : Date.now();
         const date = new Date(ts).toLocaleString();
         const shortHash = contentHash.substring(0, 10) + "..." + contentHash.substring(58);
-        const cid = (result && result.ipfsCid) ? result.ipfsCid : "QmXp8v9Z4kL1mN2oP3qR5sT7uV8wX9yZ0aB1cC2dD3eE4f";
+        const cid = (result && result.ipfsCid) ? result.ipfsCid : (btn.dataset.ipfsCid || null);
         
         badge.innerHTML = `
           <div class="integrity-card integrity-card--success">
@@ -292,7 +294,7 @@ function renderDecryptResult(data) {
               <div><span>Block Timestamp:</span> ${escapeHtml(date)}</div>
               <div><span>Security Level:</span> ${escapeHtml(secLabel)}</div>
               <div><span>Content SHA-256:</span> <code class="mono">${escapeHtml(shortHash)}</code></div>
-              <div><span>IPFS CID:</span> <code class="mono">${escapeHtml(cid)}</code></div>
+              ${cid ? `<div><span>IPFS CID:</span> <code class="mono">${escapeHtml(cid)}</code></div>` : ""}
             </div>
           </div>`;
       } catch (err) {
