@@ -4,6 +4,7 @@ let session = null;
 let currentProfile = null;
 let allowedEmails = [];
 let adminMode = false;
+let decryptedAttachments = new Map();
 
 function escapeHtml(value) {
   return String(value)
@@ -58,27 +59,28 @@ function statusBadge(value) {
 }
 
 function renderKmeStatus(data) {
-  const el = document.getElementById("kmeStatus");
+  // Render into sidebar KME block
+  const el = document.getElementById("kmeStatusSidebar");
   if (!el) return;
   if (typeof data === "string") { el.textContent = data; return; }
   const byStatus = data.byStatus || {};
-  const byAlgo = data.byAlgorithm || {};
+  const total = data.total ?? 0;
+  const available = byStatus.AVAILABLE ?? 0;
+  const consumed = byStatus.CONSUMED ?? 0;
   el.innerHTML = `
     <div class="stat-grid">
       <div class="stat-card">
-        <div class="stat-value">${escapeHtml(String(data.total ?? 0))}</div>
-        <div class="stat-label">Total keys</div>
+        <div class="stat-value">${escapeHtml(String(total))}</div>
+        <div class="stat-label">Total</div>
       </div>
-      ${Object.entries(byStatus).map(([k, v]) => `
       <div class="stat-card">
-        <div class="stat-value">${escapeHtml(String(v))}</div>
-        <div class="stat-label">${escapeHtml(k)}</div>
-      </div>`).join("")}
-      ${Object.entries(byAlgo).map(([k, v]) => `
+        <div class="stat-value" style="color:var(--success)">${escapeHtml(String(available))}</div>
+        <div class="stat-label">Ready</div>
+      </div>
       <div class="stat-card">
-        <div class="stat-value">${escapeHtml(String(v))}</div>
-        <div class="stat-label">${escapeHtml(k)}</div>
-      </div>`).join("")}
+        <div class="stat-value" style="color:var(--text-3)">${escapeHtml(String(consumed))}</div>
+        <div class="stat-label">Used</div>
+      </div>
     </div>`;
 }
 
@@ -120,7 +122,7 @@ function renderKeyPool(data) {
 function renderComposeResult(data) {
   const el = document.getElementById("composeResult");
   if (!el) return;
-  if (typeof data === "string") { el.textContent = data; return; }
+  if (typeof data === "string") { el.innerHTML = `<div style="padding:12px 16px;font-size:13px;color:var(--text-2)">${escapeHtml(data)}</div>`; return; }
   const rows = [
     ["Message ID", data.messageId],
     ["Key ID", data.keyId || "n/a (Standard)"],
@@ -129,8 +131,8 @@ function renderComposeResult(data) {
     data.transportMessageId ? ["Transport message ID", data.transportMessageId] : null
   ].filter(Boolean);
   el.innerHTML = `
-    <div class="result-card result-card--success">
-      <div class="result-card__title">Message sent</div>
+    <div class="result-card result-card--success" style="margin:16px;border-radius:var(--radius);background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);padding:14px 18px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--success);margin-bottom:10px">✓ Message sent</div>
       <dl class="result-dl">
         ${rows.map(([k, v]) => `<div class="result-dl__row"><dt>${escapeHtml(k)}</dt><dd class="mono">${escapeHtml(String(v))}</dd></div>`).join("")}
       </dl>
@@ -140,20 +142,30 @@ function renderComposeResult(data) {
 function renderDecryptResult(data) {
   const el = document.getElementById("decryptResult");
   if (!el) return;
-  if (typeof data === "string") { el.textContent = data; return; }
-  const rows = [
-    ["Message ID", data.messageId],
-    ["Key ID", data.keyId || "n/a"],
-    ["Subject", data.decryptedSubject]
-  ];
+
+  // Show the reader content pane and hide the empty state
+  const wrap = document.getElementById("decryptResultWrap");
+  const empty = document.getElementById("readerEmpty");
+  if (wrap) wrap.hidden = false;
+  if (empty) empty.hidden = true;
+
+  if (typeof data === "string") { el.innerHTML = `<p style="color:var(--text-2);padding:8px 0">${escapeHtml(data)}</p>`; return; }
+
+  // Email header meta
+  const subjectLine = escapeHtml(data.decryptedSubject ?? "(no subject)");
+  const keyLine = data.keyId ? escapeHtml(data.keyId) : "Standard (no QKD key)";
+  const msgIdShort = data.messageId ? data.messageId.substring(0, 16) + "…" : "";
+
   el.innerHTML = `
-    <div class="result-card">
-      <div class="result-card__title">Decrypted message</div>
-      <dl class="result-dl">
-        ${rows.map(([k, v]) => `<div class="result-dl__row"><dt>${escapeHtml(k)}</dt><dd class="mono">${escapeHtml(String(v ?? ""))}</dd></div>`).join("")}
-      </dl>
-      <div class="result-body">${escapeHtml(data.decryptedBody ?? "")}</div>
-    </div>`;
+    <div style="margin-bottom:16px">
+      <h3 style="font-size:18px;font-weight:700;color:var(--text);letter-spacing:-0.02em;margin-bottom:8px">${subjectLine}</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px">
+        <span class="badge badge--success">🔓 Decrypted</span>
+        <span class="badge badge--muted" title="${escapeHtml(data.messageId ?? '')}">${escapeHtml(msgIdShort)}</span>
+        <span class="badge" title="Key ID: ${escapeHtml(data.keyId ?? '')}">🔑 ${escapeHtml(keyLine)}</span>
+      </div>
+    </div>
+    <div class="result-body">${escapeHtml(data.decryptedBody ?? "")}</div>`;
 
   // Render attachments
   const section = document.getElementById("attachmentsSection");
@@ -168,16 +180,24 @@ function renderDecryptResult(data) {
   }
 
   section.hidden = false;
-  list.innerHTML = attachments.map(att => {
+  list.innerHTML = attachments.map((att, idx) => {
     const sizeKb = (att.byte_size / 1024).toFixed(1);
     const downloadUrl = `/api/v1/me/messages/${encodeURIComponent(data.messageId)}/attachments/${encodeURIComponent(att.id)}/download`;
     return `<li class="attachment-item">
-      <span class="attachment-icon">📄</span>
-      <span class="attachment-name">${escapeHtml(att.filename)}</span>
-      <span class="attachment-size muted-text">${sizeKb} KB</span>
-      <a class="attachment-download btn-link" href="${downloadUrl}" download="${escapeHtml(att.filename)}" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}">
-        ⬇ Download (decrypted)
-      </a>
+      <div class="attachment-info">
+        <span class="attachment-icon">📄</span>
+        <span class="attachment-name">${escapeHtml(att.filename)}</span>
+        <span class="attachment-size muted-text">${sizeKb} KB</span>
+      </div>
+      <div class="attachment-actions">
+        <a class="attachment-download btn-link" href="${downloadUrl}" download="${escapeHtml(att.filename)}" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}" data-attachment-index="${idx}">
+          ⬇ Download
+        </a>
+        <button type="button" class="attachment-verify btn-link" data-attachment-id="${escapeHtml(att.id)}" data-message-id="${escapeHtml(data.messageId)}" data-attachment-index="${idx}" data-download-url="${downloadUrl}" data-filename="${escapeHtml(att.filename)}">
+          🔐 Verify Integrity
+        </button>
+      </div>
+      <div class="verify-badge" id="verify-badge-${escapeHtml(att.id)}"></div>
     </li>`;
   }).join("");
 
@@ -195,6 +215,7 @@ function renderDecryptResult(data) {
           return;
         }
         const blob = await resp.blob();
+        decryptedAttachments.set(link.dataset.attachmentId, blob);
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -203,6 +224,103 @@ function renderDecryptResult(data) {
         setTimeout(() => URL.revokeObjectURL(url), 5000);
       } catch (err) {
         alert(err.message);
+      }
+    });
+  });
+
+  // Handle verify integrity buttons with seamless auto-fetch
+  list.querySelectorAll(".attachment-verify").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const attachmentId = btn.dataset.attachmentId;
+      const messageId = btn.dataset.messageId;
+      const attachmentIndex = parseInt(btn.dataset.attachmentIndex, 10);
+      const downloadUrl = btn.dataset.downloadUrl;
+      const badge = document.getElementById(`verify-badge-${attachmentId}`);
+      
+      btn.disabled = true;
+      btn.textContent = "Verifying on-chain...";
+      badge.innerHTML = `<span class="badge badge--info">Connecting to local Hardhat blockchain...</span>`;
+
+      try {
+        let blob = decryptedAttachments.get(attachmentId);
+        if (!blob) {
+          const token = session?.access_token;
+          if (!token) throw new Error("Please log in first.");
+          const resp = await fetch(downloadUrl, { headers: { Authorization: `Bearer ${token}` } });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ error: "Failed to retrieve attachment for verification" }));
+            throw new Error(err.error || "Failed to retrieve attachment");
+          }
+          blob = await resp.blob();
+          decryptedAttachments.set(attachmentId, blob);
+        }
+
+        // Compute SHA-256 of the decrypted content
+        const buffer = await blob.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const contentHash = "0x" + hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+        // Compute attachment ID hash (messageId:index)
+        const attachmentIdHash = "0x" + await (async () => {
+          const msg = new TextEncoder().encode(`${messageId}:${attachmentIndex}`);
+          const digest = await crypto.subtle.digest("SHA-256", msg);
+          return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
+        })();
+
+        const result = await api("/api/v1/blockchain/verify", {
+          method: "POST",
+          body: JSON.stringify({ attachmentId: attachmentIdHash, contentHash })
+        }, true);
+
+        if (result.valid) {
+          const securityLevels = ["Unknown", "Standard (1)", "Quantum-AES (2)", "Quantum-OTP (3)"];
+          const secLabel = securityLevels[result.securityLevel] || `Level ${result.securityLevel}`;
+          const date = new Date(result.timestamp * 1000).toLocaleString();
+          const shortHash = contentHash.substring(0, 10) + "..." + contentHash.substring(58);
+          
+          badge.innerHTML = `
+            <div class="integrity-card integrity-card--success">
+              <div class="integrity-header">
+                <span class="integrity-icon">🛡️</span>
+                <strong>Verified On-Chain (Hardhat)</strong>
+              </div>
+              <div class="integrity-details">
+                <div><span>Status:</span> <span class="badge badge--success">✓ Tamper-Evident Hash Match</span></div>
+                <div><span>Block Timestamp:</span> ${escapeHtml(date)}</div>
+                <div><span>Security Level:</span> ${escapeHtml(secLabel)}</div>
+                <div><span>Content SHA-256:</span> <code class="mono">${escapeHtml(shortHash)}</code></div>
+                ${result.ipfsCid ? `<div><span>IPFS CID:</span> <code class="mono">${escapeHtml(result.ipfsCid)}</code></div>` : ""}
+              </div>
+            </div>`;
+        } else if (!result.timestamp || result.timestamp === 0) {
+          badge.innerHTML = `
+            <div class="integrity-card integrity-card--error">
+              <div class="integrity-header">
+                <span class="integrity-icon">ℹ️</span>
+                <strong>No On-Chain Record Found</strong>
+              </div>
+              <div class="integrity-details">
+                <span class="badge badge--muted">This message was sent before restarting the local Hardhat node. Please send a new email to test on-chain verification.</span>
+              </div>
+            </div>`;
+        } else {
+          badge.innerHTML = `
+            <div class="integrity-card integrity-card--error">
+              <div class="integrity-header">
+                <span class="integrity-icon">⚠️</span>
+                <strong>Integrity Verification Failed</strong>
+              </div>
+              <div class="integrity-details">
+                <span class="badge badge--error">✗ Content hash does not match on-chain record - potential tampering detected</span>
+              </div>
+            </div>`;
+        }
+      } catch (err) {
+        badge.innerHTML = `<span class="badge badge--error">Verification error: ${escapeHtml(err.message)}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "🔐 Verify Integrity";
       }
     });
   });
@@ -310,16 +428,34 @@ function renderBootstrapStatus(data) {
   el.innerHTML = `<span class="status-pill">${escapeHtml(text)}</span>`;
 }
 
+function switchView(viewName) {
+  document.querySelectorAll(".view").forEach(v => {
+    v.classList.remove("view--active");
+    v.style.display = "none";
+  });
+  document.querySelectorAll(".sidebar-nav-item").forEach(b => b.classList.remove("sidebar-nav-item--active"));
+
+  const targetView = document.getElementById("view" + viewName.charAt(0).toUpperCase() + viewName.slice(1));
+  const targetBtn = document.querySelector(`[data-view="${viewName}"]`);
+  const topbarTitle = document.getElementById("topbarTitle");
+
+  if (targetView) { targetView.style.display = "flex"; targetView.classList.add("view--active"); }
+  if (targetBtn) targetBtn.classList.add("sidebar-nav-item--active");
+  if (topbarTitle) topbarTitle.textContent = viewName.charAt(0).toUpperCase() + viewName.slice(1);
+}
+
 function toggleApp(isLoggedIn) {
-  document.getElementById("authPanel").hidden = isLoggedIn;
-  document.getElementById("appShell").hidden = !isLoggedIn;
-  document.getElementById("logoutBtn").hidden = !isLoggedIn;
-  document.getElementById("adminToggleBtn").hidden = !isLoggedIn;
+  const authPanel = document.getElementById("authPanel");
+  const appShell = document.getElementById("appShell");
+  if (authPanel) authPanel.hidden = isLoggedIn;
+  if (appShell) appShell.hidden = !isLoggedIn;
 }
 
 function applyAdminMode() {
-  document.getElementById("adminPanel").hidden = !adminMode;
-  document.getElementById("adminToggleBtn").textContent = adminMode ? "Hide admin tools" : "Show admin tools";
+  const adminPanel = document.getElementById("adminPanel");
+  const toggleBtn = document.getElementById("adminToggleBtn");
+  if (adminPanel) adminPanel.hidden = !adminMode;
+  if (toggleBtn) toggleBtn.textContent = adminMode ? "Hide admin" : "Admin tools";
 }
 
 function readOAuthResult() {
@@ -390,18 +526,21 @@ function renderAllowedEmails() {
 
 function renderCurrentClient() {
   const root = document.getElementById("clientList");
+  if (!root) return;
   if (!currentProfile) {
-    root.innerHTML = "<div class='client-card'>Log in to load your QuMail client.</div>";
+    root.innerHTML = `<div class="client-card"><div style="color:var(--text-3);font-size:12px">Log in to load your client.</div></div>`;
     return;
   }
 
+  const gmailLabel = currentProfile.gmailConnected ? "Reconnect Gmail" : "Connect Gmail";
+  const connectionNote = displayConnectionNote(currentProfile);
   root.innerHTML = `
     <div class="client-card">
       <strong>${escapeHtml(currentProfile.displayName)}</strong>
-      <div>${escapeHtml(currentProfile.clientCode)}</div>
-      <div>${escapeHtml(displayAddress(currentProfile))}</div>
-      <div>${escapeHtml(displayConnectionNote(currentProfile))}</div>
-      <button id="gmailConnectBtn" type="button">${currentProfile.gmailConnected ? "Reconnect Gmail" : "Connect Gmail"}</button>
+      <div style="color:var(--primary);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:4px">${escapeHtml(currentProfile.clientCode)}</div>
+      <div style="word-break:break-all">${escapeHtml(displayAddress(currentProfile))}</div>
+      <div style="margin-top:4px;font-size:11px">${escapeHtml(connectionNote)}</div>
+      <button id="gmailConnectBtn" type="button">${escapeHtml(gmailLabel)}</button>
     </div>`;
 
   document.getElementById("gmailConnectBtn").addEventListener("click", async () => {
@@ -415,9 +554,25 @@ function renderCurrentClient() {
 }
 
 async function checkEmail(messageId) {
-  setText("decryptResult", "Decrypting email...");
   const section = document.getElementById("attachmentsSection");
   if (section) section.hidden = true;
+
+  // Show reader pane with loading indicator
+  const wrap = document.getElementById("decryptResultWrap");
+  const empty = document.getElementById("readerEmpty");
+  const el = document.getElementById("decryptResult");
+  if (wrap) wrap.hidden = false;
+  if (empty) empty.hidden = true;
+  if (el) el.innerHTML = `<div style="display:flex;align-items:center;gap:10px;color:var(--text-3);font-size:13px;padding:8px 0"><span style="width:16px;height:16px;border:2px solid var(--border-2);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></span> Decrypting…</div>`;
+
+  // Inject spin keyframe once
+  if (!document.getElementById("spin-style")) {
+    const s = document.createElement("style");
+    s.id = "spin-style";
+    s.textContent = "@keyframes spin{to{transform:rotate(360deg)}}";
+    document.head.appendChild(s);
+  }
+
   try {
     const result = await api("/api/v1/me/messages/decrypt", {
       method: "POST",
@@ -425,40 +580,62 @@ async function checkEmail(messageId) {
     }, true);
     renderDecryptResult(result);
   } catch (error) {
-    setText("decryptResult", error.message);
+    if (el) el.innerHTML = `<p style="color:#f87171;font-size:13px">${escapeHtml(error.message)}</p>`;
   }
+}
+
+function securityBadgeHtml(mode) {
+  if (!mode) return '';
+  const m = String(mode).toUpperCase();
+  if (m.includes('OTP'))    return `<span class="msg-security-badge msg-security-badge--otp">Q-OTP</span>`;
+  if (m.includes('QUANTUM') || m.includes('AES')) return `<span class="msg-security-badge msg-security-badge--aes">Q-AES</span>`;
+  return `<span class="msg-security-badge msg-security-badge--standard">STD</span>`;
 }
 
 async function loadInbox() {
   const root = document.getElementById("inboxList");
+  if (!root) return;
   if (!currentProfile) {
-    root.innerHTML = "<div class='message-card'>Log in to view your inbox.</div>";
+    root.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3);font-size:13px">Log in to view your inbox.</div>`;
     return;
   }
 
   const messages = await api("/api/v1/me/messages", {}, true);
   if (!messages.length) {
-    root.innerHTML = "<div class='message-card'>No messages yet.</div>";
+    root.innerHTML = `<div style="padding:32px 20px;text-align:center;color:var(--text-3);font-size:13px">📭 No messages yet.</div>`;
     return;
   }
 
-  root.innerHTML = messages
-    .map(
-      (message) => `
-        <div class="message-card">
-          <div><strong>${escapeHtml(message.message_id)}</strong></div>
-          <div>${escapeHtml(message.subject_hint)}</div>
-          <div>${escapeHtml(message.encryption_mode)}</div>
-          <div>${escapeHtml(message.sent_at || message.received_at || "Pending timestamp")}</div>
-          <button data-message="${escapeHtml(message.message_id)}" class="check-email" type="button">Check email</button>
-        </div>`
-    )
-    .join("");
+  root.innerHTML = messages.map(msg => {
+    const ts = msg.sent_at || msg.received_at;
+    const timeStr = ts ? new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+    const dateStr = ts ? new Date(ts).toLocaleDateString([], {month:'short',day:'numeric'}) : '';
+    const timeLabel = ts
+      ? (new Date(ts).toDateString() === new Date().toDateString() ? timeStr : dateStr)
+      : '';
+    const subject = msg.subject_hint || '(no subject)';
+    const shortId = msg.message_id ? msg.message_id.substring(0, 8) + '…' : '';
+    return `
+      <div class="message-card" data-message="${escapeHtml(msg.message_id)}" role="button" tabindex="0">
+        <div>
+          <span>${escapeHtml(shortId)}</span>
+          <span class="msg-time">${escapeHtml(timeLabel)}</span>
+        </div>
+        <div class="msg-subject">${escapeHtml(subject)}</div>
+        <div class="msg-meta">
+          ${securityBadgeHtml(msg.encryption_mode)}
+        </div>
+      </div>`;
+  }).join('');
 
-  document.querySelectorAll(".check-email").forEach((button) => {
-    button.addEventListener("click", async () => {
-      await checkEmail(button.dataset.message);
-    });
+  root.querySelectorAll('.message-card').forEach(card => {
+    const handler = async () => {
+      root.querySelectorAll('.message-card').forEach(c => c.classList.remove('message-card--active'));
+      card.classList.add('message-card--active');
+      await checkEmail(card.dataset.message);
+    };
+    card.addEventListener('click', handler);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') handler(); });
   });
 }
 
@@ -475,9 +652,12 @@ async function loadKeyPool() {
 
 async function loadMe() {
   currentProfile = await api("/api/v1/me", {}, true);
-  document.getElementById("senderEmail").value = currentProfile.connectedEmailAddress || currentProfile.email;
-  document.getElementById("recipientEmail").placeholder = allowedEmails.find((email) => email !== currentProfile.email) || "recipient@gmail.com";
-  document.getElementById("inboxIdentity").value = `${currentProfile.displayName} (${currentProfile.clientCode})`;
+  const senderEl = document.getElementById("senderEmail");
+  if (senderEl) senderEl.value = currentProfile.connectedEmailAddress || currentProfile.email;
+  const recipEl = document.getElementById("recipientEmail");
+  if (recipEl) recipEl.placeholder = allowedEmails.find((email) => email !== currentProfile.email) || "recipient@gmail.com";
+  const identEl = document.getElementById("inboxIdentity");
+  if (identEl) identEl.textContent = currentProfile.displayName || currentProfile.clientCode || "";
   renderCurrentClient();
 }
 
@@ -547,12 +727,25 @@ async function loadAllowedEmails() {
   renderAllowedEmails();
 }
 
+// ── Sidebar nav switching ─────────────────────────────────────
+document.querySelectorAll(".sidebar-nav-item").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const view = btn.dataset.view;
+    if (view) switchView(view);
+  });
+});
+
+// Initialize views — hide all, show inbox
+document.querySelectorAll(".view").forEach(v => { v.style.display = "none"; });
+const initialView = document.getElementById("viewInbox");
+if (initialView) { initialView.style.display = "flex"; initialView.classList.add("view--active"); }
+
 const simulateBb84Btn = document.getElementById("simulateBb84Btn") || document.getElementById("bootstrapBtn");
 if (simulateBb84Btn) {
   simulateBb84Btn.addEventListener("click", async () => {
     simulateBb84Btn.disabled = true;
     const prevText = simulateBb84Btn.textContent;
-    simulateBb84Btn.textContent = "Simulating BB84 QKD...";
+    simulateBb84Btn.textContent = "Simulating…";
     try {
       const result = await api("/api/v1/admin/simulate-bb84", { method: "POST" });
       renderBootstrapStatus(result?.result || result);
@@ -640,16 +833,16 @@ if (attachFilesInput && attachPreview) {
 
 document.getElementById("composeForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const submitBtn = event.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Sending…"; }
   try {
     const form = event.currentTarget;
     const formData = new FormData();
-    // Append text fields
     formData.append("recipientEmail", form.recipientEmail.value);
     formData.append("subject", form.subject.value);
     formData.append("body", form.body.value);
     formData.append("securityLevel", form.securityLevel.value);
     formData.append("transportMode", form.transportMode.value);
-    // Append files
     const files = document.getElementById("attachFiles")?.files || [];
     for (const file of files) {
       formData.append("files", file, file.name);
@@ -659,14 +852,18 @@ document.getElementById("composeForm").addEventListener("submit", async (event) 
       body: formData
     }, true);
     renderComposeResult(result);
-    setText("decryptResult", "No email opened yet.");
     // Reset attachments
     if (attachFilesInput) attachFilesInput.value = "";
     if (attachPreview) attachPreview.innerHTML = "";
     await loadInbox();
     await loadKeyPool();
+    // Auto-switch to inbox after a short delay
+    setTimeout(() => switchView('inbox'), 1200);
   } catch (error) {
-    setText("composeResult", error.message);
+    const el = document.getElementById("composeResult");
+    if (el) el.innerHTML = `<div style="margin:16px;padding:12px 16px;background:var(--danger-subtle);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);color:#f87171;font-size:13px">${escapeHtml(error.message)}</div>`;
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Encrypted'; }
   }
 });
 
@@ -687,12 +884,12 @@ document.getElementById("refreshPoolBtn").addEventListener("click", async () => 
 });
 
 applyAdminMode();
-await loadAllowedEmails().catch((error) => setText("allowedEmails", error.message));
+await loadAllowedEmails().catch((error) => setText("loginStatus", error.message));
 await bootstrapFrontendAuth().catch((error) => setText("loginStatus", error.message));
 
 const oauthResult = readOAuthResult();
 if (oauthResult) {
-  setText("bootstrapStatus", oauthResult);
+  renderBootstrapStatus(oauthResult);
   if (session) {
     await refreshAuthenticatedView().catch(() => {});
   }

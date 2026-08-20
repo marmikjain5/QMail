@@ -5,6 +5,7 @@ import { getClientByCode, getClientByEmail, getClientById } from "./clientServic
 import { consumeKey, reserveKey, retrievePeerKey } from "./kmeService.js";
 import { sendViaGmail } from "./mailService.js";
 import { saveEncryptedAttachment, listAttachments } from "./attachmentService.js";
+import { registerAttachment, computeAttachmentId, computeContentHash, computeKeyIdHash, securityLevelToUint8 } from "./blockchainService.js";
 
 function subjectAad(messageId, sender, recipient, securityLevel) {
   return JSON.stringify({ messageId, sender, recipient, securityLevel });
@@ -150,14 +151,27 @@ export async function sendMessage({ senderClientCode, recipientClientCode, subje
       // Store it in the envelope for the recipient
       envelope.attachmentKey = ephemeralAttachKeyBase64;
     }
-    for (const att of attachments) {
-      await saveEncryptedAttachment({
+    for (let i = 0; i < attachments.length; i++) {
+      const att = attachments[i];
+      const saved = await saveEncryptedAttachment({
         messageRowId: msgRow.id,
         filename: att.filename,
         mimeType: att.mimeType,
         fileBuffer: att.buffer,
         keyBase64: finalAttachKey
       });
+      // Register on blockchain integrity registry
+      const attachmentId = computeAttachmentId(messageId, i);
+      const contentHash = computeContentHash(att.buffer);
+      const keyIdHash = computeKeyIdHash(reservedKey?.keyId || ephemeralAttachKeyBase64 || "ephemeral");
+      const secLevel = securityLevelToUint8(securityLevel);
+      const ipfsCid = att.ipfsCid || "";
+      try {
+        const regRes = await registerAttachment({ attachmentId, ipfsCid, contentHash, keyIdHash, securityLevel: secLevel });
+        console.log(`[messageService] Registered attachment #${i} (${att.filename}) on blockchain. TX: ${regRes.transactionHash}`);
+      } catch (err) {
+        console.error(`[messageService] Blockchain registration failed for attachment #${i} (${att.filename}):`, err.message);
+      }
     }
     // If we stored the key in the envelope, persist updated package_json
     if (ephemeralAttachKeyBase64) {

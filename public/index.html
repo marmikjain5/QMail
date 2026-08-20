@@ -3,143 +3,265 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="QuMail — quantum-ready secure messaging with magic-link login and encrypted message delivery." />
-    <title>QuMail</title>
+    <meta name="description" content="QuMail — Quantum-secure email with blockchain integrity verification, post-quantum cryptography, and zero-trust architecture." />
+    <title>QuMail — Quantum-Secure Email</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Quantum-ready secure messaging</p>
-        <h1>QuMail</h1>
-        <p class="lede">Magic-link login for your two approved Gmail test users, with encrypted message delivery mapped onto the same two QuMail clients and key pools you already use.</p>
-        <div class="actions">
-          <button id="adminToggleBtn" type="button" hidden>Show admin tools</button>
-          <button id="logoutBtn" type="button" hidden>Log out</button>
-          <span id="bootstrapStatus"></span>
+
+    <!-- ── Auth Gate ──────────────────────────────────────── -->
+    <div id="authPanel" class="auth-gate">
+      <div class="auth-left">
+        <div class="auth-brand">
+          <div class="brand-logo">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="10" fill="url(#lg1)"/>
+              <path d="M8 13l10 7 10-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 13v12a2 2 0 002 2h16a2 2 0 002-2V13" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="26" cy="12" r="4" fill="#34D399"/>
+              <defs>
+                <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#4F46E5"/>
+                  <stop offset="1" stop-color="#7C3AED"/>
+                </linearGradient>
+              </defs>
+            </svg>
+            <span class="brand-name">QuMail</span>
+          </div>
+          <div class="brand-badge">Post-Quantum Secure</div>
         </div>
-      </section>
 
-      <section id="authPanel" class="grid two-up">
-        <article class="panel">
-          <h2>Login</h2>
-          <p>Sign in using one of the approved client accounts. For live presentations, use 1-Click Fast Login to open two windows side-by-side.</p>
-          
-          <div class="fast-login-box">
-            <span class="fast-login-badge">⚡ 1-Click Fast Login (Presentation Mode)</span>
-            <div id="fastLoginActions" class="fast-login-buttons">
-              <!-- Dynamically populated with client buttons -->
+        <div class="auth-hero">
+          <h1>Email the way it<br/>was meant to be.</h1>
+          <p>Quantum-encrypted messaging with blockchain tamper-evidence. Zero trust. End-to-end.</p>
+          <div class="auth-features">
+            <div class="auth-feature"><span class="feat-dot feat-dot--blue"></span>BB84 Quantum Key Distribution</div>
+            <div class="auth-feature"><span class="feat-dot feat-dot--green"></span>AES-256-GCM + Quantum-OTP</div>
+            <div class="auth-feature"><span class="feat-dot feat-dot--purple"></span>On-chain integrity registry</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-right">
+        <div class="auth-card">
+          <h2>Sign in to QuMail</h2>
+          <p class="auth-subtitle">Use 1-click login for the demo clients.</p>
+
+          <div class="fast-login-box" id="fastLoginActions">
+            <!-- Dynamically populated -->
+          </div>
+
+          <div class="auth-divider"><span>or sign in with email</span></div>
+
+          <form id="loginForm" class="auth-form">
+            <div class="field">
+              <label for="loginEmail">Email address</label>
+              <input id="loginEmail" name="email" type="email" placeholder="name@gmail.com" required autocomplete="email" />
+            </div>
+            <button type="submit" class="btn btn--primary btn--full">Send magic link →</button>
+          </form>
+
+          <div class="auth-status-wrap">
+            <pre id="loginStatus" class="auth-status">Checking accounts...</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── App Shell ───────────────────────────────────────── -->
+    <div id="appShell" class="app-shell" hidden>
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+            <rect width="36" height="36" rx="10" fill="url(#lg2)"/>
+            <path d="M8 13l10 7 10-7" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 13v12a2 2 0 002 2h16a2 2 0 002-2V13" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="26" cy="12" r="4" fill="#34D399"/>
+            <defs>
+              <linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#4F46E5"/>
+                <stop offset="1" stop-color="#7C3AED"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="sidebar-brand-name">QuMail</span>
+        </div>
+
+        <div id="clientList" class="sidebar-profile"></div>
+
+        <nav class="sidebar-nav">
+          <button class="sidebar-nav-item sidebar-nav-item--active" data-view="inbox">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            Inbox
+          </button>
+          <button class="sidebar-nav-item" data-view="compose">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Compose
+          </button>
+        </nav>
+
+        <div class="sidebar-security">
+          <div class="security-indicator">
+            <div class="security-dot"></div>
+            <span>Quantum-secured session</span>
+          </div>
+          <div id="kmeStatusSidebar" class="sidebar-kme"></div>
+        </div>
+
+        <div class="sidebar-footer">
+          <button id="adminToggleBtn" class="btn-ghost btn-ghost--sidebar" type="button">Admin tools</button>
+          <button id="logoutBtn" class="btn-ghost btn-ghost--sidebar btn-ghost--danger" type="button">Sign out</button>
+        </div>
+      </aside>
+
+      <!-- Main content -->
+      <main class="app-main">
+
+        <!-- Top bar -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <h2 id="topbarTitle" class="topbar-title">Inbox</h2>
+            <span id="bootstrapStatus" class="topbar-status"></span>
+          </div>
+          <div class="topbar-right">
+            <button id="refreshInboxBtn" class="btn btn--ghost btn--sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+              Refresh
+            </button>
+            <button id="simulateBb84Btn" type="button" class="btn btn--primary btn--sm">
+              ⚡ Simulate BB84 QKD
+            </button>
+          </div>
+        </header>
+
+        <!-- Views -->
+        <div class="view-wrap">
+
+          <!-- Inbox view -->
+          <section id="viewInbox" class="view view--active">
+            <div class="inbox-layout">
+              <!-- Message list -->
+              <div class="message-list-panel">
+                <div class="panel-header">
+                  <span class="panel-header-title">Messages</span>
+                  <span class="inbox-identity-pill" id="inboxIdentity"></span>
+                </div>
+                <div id="inboxList" class="message-list"></div>
+              </div>
+
+              <!-- Message reader -->
+              <div class="message-reader-panel">
+                <div class="reader-empty" id="readerEmpty">
+                  <div class="reader-empty-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  </div>
+                  <p>Select a message to read it</p>
+                </div>
+
+                <div id="decryptResultWrap" class="reader-content" hidden>
+                  <div id="decryptResult" class="reader-body"></div>
+                  <div id="attachmentsSection" hidden class="attachments-section">
+                    <div class="attachments-heading">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                      Decrypted Attachments
+                    </div>
+                    <ul id="attachmentsList" class="attachments-list"></ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Compose view -->
+          <section id="viewCompose" class="view">
+            <div class="compose-layout">
+              <div class="compose-panel">
+                <div class="panel-header">
+                  <span class="panel-header-title">New Message</span>
+                </div>
+                <form id="composeForm" class="compose-form">
+                  <div class="compose-meta">
+                    <div class="compose-row">
+                      <span class="compose-label">From</span>
+                      <input id="senderEmail" name="senderEmail" readonly class="compose-input" />
+                    </div>
+                    <div class="compose-row">
+                      <span class="compose-label">To</span>
+                      <input id="recipientEmail" name="recipientEmail" type="email" required class="compose-input" placeholder="recipient@example.com" />
+                    </div>
+                    <div class="compose-row">
+                      <span class="compose-label">Subject</span>
+                      <input id="subject" name="subject" required class="compose-input" placeholder="Message subject" />
+                    </div>
+                  </div>
+
+                  <textarea id="body" name="body" rows="12" required class="compose-body" placeholder="Write your message..."></textarea>
+
+                  <div class="compose-toolbar">
+                    <div class="compose-options">
+                      <div class="compose-option-group">
+                        <label class="option-label" for="securityLevel">Security</label>
+                        <select id="securityLevel" name="securityLevel" class="option-select">
+                          <option value="STANDARD">⚪ Level 1 — Standard</option>
+                          <option value="QUANTUM_AES" selected>🔵 Level 2 — Quantum-AES</option>
+                          <option value="QUANTUM_OTP">🟣 Level 3 — Quantum-OTP</option>
+                        </select>
+                      </div>
+                      <div class="compose-option-group">
+                        <label class="option-label" for="transportMode">Transport</label>
+                        <select id="transportMode" name="transportMode" class="option-select">
+                          <option value="INTERNAL" selected>Internal Inbox</option>
+                          <option value="GMAIL">Gmail API</option>
+                        </select>
+                      </div>
+                      <label class="attach-btn" for="attachFiles">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                        Attach
+                        <input id="attachFiles" type="file" multiple style="display:none" />
+                      </label>
+                    </div>
+                    <button type="submit" class="btn btn--primary btn--send">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      Send Encrypted
+                    </button>
+                  </div>
+
+                  <ul id="attachPreview" class="attach-preview"></ul>
+                </form>
+                <div id="composeResult"></div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Admin panel (collapsible) -->
+        <section id="adminPanel" class="admin-panel" hidden>
+          <div class="admin-header">
+            <h3>Admin Tools</h3>
+            <div class="admin-actions">
+              <button id="refreshPoolBtn" type="button" class="btn btn--ghost btn--sm">Refresh Key Pool</button>
             </div>
           </div>
-
-          <div class="divider-line"><span>or use email magic link</span></div>
-
-          <form id="loginForm">
-            <label>Email
-              <input id="loginEmail" name="email" type="email" placeholder="name@gmail.com" required />
-            </label>
-            <button type="submit">Send magic link</button>
-          </form>
-          <pre id="loginStatus">Checking allowed emails...</pre>
-        </article>
-
-        <article class="panel">
-          <h2>Allowed users</h2>
-          <pre id="allowedEmails">Loading...</pre>
-        </article>
-      </section>
-
-      <section id="appShell" hidden>
-        <section class="grid two-up">
-        <article class="panel selector">
-          <h2>Your client</h2>
-          <div id="clientList" class="client-list"></div>
-        </article>
-
-        <article class="panel metrics">
-          <h2>KME status</h2>
-          <pre id="kmeStatus">Loading...</pre>
-        </article>
-        </section>
-
-        <section class="grid workbench">
-        <article class="panel">
-          <h2>Compose</h2>
-          <form id="composeForm">
-            <label>Signed in as
-              <input id="senderEmail" name="senderEmail" readonly />
-            </label>
-            <label>Recipient email
-              <input id="recipientEmail" name="recipientEmail" type="email" required />
-            </label>
-            <label>Subject
-              <input id="subject" name="subject" required />
-            </label>
-            <label>Message
-              <textarea id="body" name="body" rows="7" required></textarea>
-            </label>
-            <label>Security level
-              <select id="securityLevel" name="securityLevel">
-                <option value="STANDARD">Level 1 - Standard</option>
-                <option value="QUANTUM_AES" selected>Level 2 - Quantum-AES</option>
-                <option value="QUANTUM_OTP">Level 3 - Quantum-OTP</option>
-              </select>
-            </label>
-            <label>Transport
-              <select id="transportMode" name="transportMode">
-                <option value="INTERNAL" selected>Internal demo inbox</option>
-                <option value="GMAIL">Gmail API</option>
-              </select>
-            </label>
-            <div class="attach-area">
-              <label class="attach-label" for="attachFiles">
-                <span class="attach-icon">📎</span>
-                <span>Attach files</span>
-                <input id="attachFiles" type="file" multiple style="display:none" />
-              </label>
-              <ul id="attachPreview" class="attach-preview"></ul>
+          <div class="admin-grid">
+            <div class="admin-card">
+              <div class="admin-card-title">Gmail Connections</div>
+              <div id="gmailStatus">Loading...</div>
             </div>
-            <button type="submit">Send encrypted message</button>
-          </form>
-          <pre id="composeResult"></pre>
-        </article>
-
-        <article class="panel">
-          <h2>Inbox</h2>
-          <div class="inline-actions">
-            <input id="inboxIdentity" readonly />
-            <button id="refreshInboxBtn">Refresh inbox</button>
+            <div class="admin-card admin-card--wide">
+              <div class="admin-card-title">Developer Key Pool</div>
+              <div id="keyPool"></div>
+            </div>
           </div>
-          <div id="inboxList" class="inbox-list"></div>
-        </article>
-
-        <article class="panel">
-          <h2>Decrypted email</h2>
-          <p>Click <strong>Check email</strong> on any inbox message to decrypt it instantly.</p>
-          <div id="decryptResult">No email opened yet.</div>
-          <div id="attachmentsSection" hidden>
-            <h3 class="attachments-heading">🔓 Decrypted Attachments</h3>
-            <ul id="attachmentsList" class="attachments-list"></ul>
-          </div>
-        </article>
         </section>
 
-        <section id="adminPanel" class="panel" hidden>
-          <h2>Admin tools</h2>
-          <div class="admin-actions">
-            <button id="simulateBb84Btn" type="button">Simulate BB84</button>
-            <button id="refreshPoolBtn" type="button">Refresh key pool</button>
-          </div>
-          <h3>Gmail connections</h3>
-          <pre id="gmailStatus">Loading...</pre>
-          <h2>Developer key pool</h2>
-          <pre id="keyPool"></pre>
-        </section>
-      </section>
-    </main>
+      </main>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="/app.js"></script>

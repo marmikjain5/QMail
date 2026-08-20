@@ -19,10 +19,13 @@ import { getKmeStatus, listKeyPool, reserveKey, retrievePeerKey } from "../servi
 import { getGmailAuthUrl, getGmailConnectionStatus, storeGmailTokens } from "../services/mailService.js";
 import { decryptMessageForUser, decryptMessageForViewer, listMessagesForClient, listMessagesForUser, sendMessage, sendMessageAsUser } from "../services/messageService.js";
 import { getDecryptedAttachment } from "../services/attachmentService.js";
+import { registerAttachment, verifyAttachment, getAttachmentOnChain, getAttachmentEvent, CONTRACT_ADDRESS } from "../services/blockchainService.js";
+console.log('[routes] Blockchain service imported, registerAttachment:', registerAttachment.name);
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 export function registerRoutes(app) {
+  console.log('[routes] registerRoutes called');
   app.get("/api/v1/health", (_req, res) => {
     res.json({ ok: true, service: "qumail" });
   });
@@ -288,4 +291,44 @@ export function registerRoutes(app) {
   app.get("/api/v1/providers/gmail/status", asyncHandler(async (_req, res) => {
     res.json(await getGmailConnectionStatus());
   }));
+
+  // Blockchain integrity registry
+  app.get("/api/v1/blockchain/contract", (_req, res) => {
+    res.json({ contractAddress: CONTRACT_ADDRESS, network: "hardhat-local" });
+  });
+
+  app.post("/api/v1/blockchain/verify", asyncHandler(async (req, res) => {
+    const { attachmentId, contentHash } = req.body;
+    if (!attachmentId || !contentHash) {
+      throw new AppError("attachmentId and contentHash are required", 400);
+    }
+    const result = await verifyAttachment(attachmentId, contentHash);
+    res.json(result);
+  }));
+
+  app.post("/api/v1/blockchain/register", asyncHandler(async (req, res) => {
+    const { attachmentId, ipfsCid, contentHash, keyIdHash, securityLevel } = req.body;
+    if (!attachmentId || !contentHash || !keyIdHash || securityLevel === undefined) {
+      throw new AppError("attachmentId, contentHash, keyIdHash, and securityLevel are required", 400);
+    }
+    const result = await registerAttachment({ attachmentId, ipfsCid: ipfsCid || "", contentHash, keyIdHash, securityLevel });
+    res.json(result);
+  }));
+
+  app.get("/api/v1/blockchain/record/:attachmentId", asyncHandler(async (req, res) => {
+    const record = await getAttachmentOnChain(req.params.attachmentId);
+    if (!record.exists) {
+      return res.status(404).json({ error: "Attachment record not found on blockchain" });
+    }
+    res.json(record);
+  }));
+
+  app.get("/api/v1/blockchain/event/:attachmentId", asyncHandler(async (req, res) => {
+    const event = await getAttachmentEvent(req.params.attachmentId);
+    if (!event) {
+      return res.status(404).json({ error: "No registration event found" });
+    }
+    res.json(event);
+  }));
 }
+
