@@ -84,14 +84,114 @@ function renderKmeStatus(data) {
     </div>`;
 }
 
-function renderKeyPool(data) {
-  const el = document.getElementById("keyPool");
-  if (!el) return;
-  if (typeof data === "string") { el.textContent = data; return; }
-  if (!Array.isArray(data) || !data.length) {
-    el.innerHTML = `<p class="info-empty">No keys in pool.</p>`;
+let cachedKeyPoolKeys = [];
+
+function algorithmBadge(usage) {
+  if (usage === "OTP") return `<span class="badge badge--purple">Quantum OTP</span>`;
+  if (usage === "AES256_GCM") return `<span class="badge badge--blue">AES-256-GCM</span>`;
+  return `<span class="badge">${escapeHtml(usage)}</span>`;
+}
+
+function renderAdminStatsContainer(summary) {
+  const container = document.getElementById("adminStatsContainer");
+  if (!container) return;
+  if (!summary) {
+    container.innerHTML = "";
     return;
   }
+
+  const yieldPct = summary.lastBb84Sim?.averageSiftingEfficiency
+    ? (summary.lastBb84Sim.averageSiftingEfficiency * 100).toFixed(1)
+    : "50.0";
+
+  container.innerHTML = `
+    <div class="admin-stat-card">
+      <div class="admin-stat-val">${summary.total || 0}</div>
+      <div class="admin-stat-lbl">Total Keys (${summary.available || 0} Ready, ${summary.consumed || 0} Used)</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val text-blue">${summary.aes256Keys || 0}</div>
+      <div class="admin-stat-lbl">AES-256 Keys (32 Bytes / 256 bits)</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val text-purple">${summary.quantumOtpKeys || 0}</div>
+      <div class="admin-stat-lbl">Quantum-OTP Keys (2048 Bytes / 16384 bits)</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-val text-green">${yieldPct}%</div>
+      <div class="admin-stat-lbl">BB84 Sifting Efficiency Yield</div>
+    </div>
+  `;
+}
+
+function renderBb84SiftingCard(simData) {
+  const container = document.getElementById("bb84SiftingCard");
+  if (!container) return;
+  if (!simData) {
+    container.innerHTML = `
+      <div class="sifting-empty-state">
+        <p>No active BB84 simulation metrics recorded yet in this session.</p>
+        <p class="muted-text">Click <strong>⚡ Simulate BB84 QKD</strong> in the topbar to execute quantum key distribution.</p>
+      </div>`;
+    return;
+  }
+
+  const rawPhotons = (simData.totalRawPhotonsTransmitted || 163840).toLocaleString();
+  const matchedBases = (simData.totalMatchedBasesSifted || 81920).toLocaleString();
+  const yieldPct = ((simData.averageSiftingEfficiency || 0.5) * 100).toFixed(1);
+  const ts = simData.timestamp ? new Date(simData.timestamp).toLocaleTimeString() : "Recent simulation";
+
+  container.innerHTML = `
+    <div class="sifting-metrics-grid">
+      <div class="sifting-metric-item">
+        <span class="sifting-metric-label">Quantum Channel Transmitted</span>
+        <span class="sifting-metric-value">${rawPhotons} photons (raw bits)</span>
+      </div>
+      <div class="sifting-metric-item">
+        <span class="sifting-metric-label">Sifting Phase Basis Match</span>
+        <span class="sifting-metric-value">${matchedBases} matched bases</span>
+      </div>
+      <div class="sifting-metric-item">
+        <span class="sifting-metric-label">Sifting Yield Efficiency</span>
+        <span class="sifting-metric-value text-green">${yieldPct}% Yield</span>
+      </div>
+      <div class="sifting-metric-item">
+        <span class="sifting-metric-label">Key Pairs Established</span>
+        <span class="sifting-metric-value">${simData.pairs || 100} pairs (${simData.aesPairs || 80} AES + ${simData.otpPairs || 20} OTP)</span>
+      </div>
+    </div>
+    <div class="sifting-progress-bar-wrap">
+      <div class="sifting-progress-label"><span>Polarization Basis Match Yield (+ / x)</span><span>${yieldPct}%</span></div>
+      <div class="sifting-progress-track">
+        <div class="sifting-progress-fill" style="width: ${yieldPct}%"></div>
+      </div>
+    </div>
+    <div class="sifting-footer-meta muted-text">
+      Protocol: BB84 4-State Quantum Key Distribution · Quantum Channel Noise: 0% · Last Run: ${ts}
+    </div>
+  `;
+}
+
+function renderKeyPoolTable() {
+  const el = document.getElementById("keyPool");
+  if (!el) return;
+
+  const algoFilter = document.getElementById("keyPoolAlgoFilter")?.value || "ALL";
+  const statusFilter = document.getElementById("keyPoolStatusFilter")?.value || "ALL";
+
+  let filtered = cachedKeyPoolKeys;
+  if (algoFilter !== "ALL") {
+    filtered = filtered.filter(k => k.algorithm_usage === algoFilter);
+  }
+  if (statusFilter !== "ALL") {
+    filtered = filtered.filter(k => k.status === statusFilter);
+  }
+
+  if (!filtered.length) {
+    el.innerHTML = `<p class="info-empty">No matching keys in pool.</p>`;
+    return;
+  }
+
   el.innerHTML = `
     <div class="table-wrap">
       <table class="data-table">
@@ -103,20 +203,107 @@ function renderKeyPool(data) {
             <th>Size</th>
             <th>Source</th>
             <th>Created</th>
+            <th>Inspect</th>
           </tr>
         </thead>
         <tbody>
-          ${data.map(row => `<tr>
+          ${filtered.map(row => `<tr>
             <td class="mono truncate" title="${escapeHtml(row.key_id)}">${escapeHtml(row.key_id)}</td>
-            <td>${statusBadge(row.algorithm_usage)}</td>
+            <td>${algorithmBadge(row.algorithm_usage)}</td>
             <td>${statusBadge(row.status)}</td>
             <td>${escapeHtml(String(row.key_size_bytes))}B</td>
             <td>${escapeHtml(row.source_type || "—")}</td>
             <td class="muted-text">${row.created_at ? new Date(row.created_at).toLocaleString() : "—"}</td>
+            <td>
+              <button type="button" class="btn-inspect-key btn btn--ghost btn--xs" data-key="${escapeHtml(row.key_id)}">
+                🔍 Inspect
+              </button>
+            </td>
           </tr>`).join("")}
         </tbody>
       </table>
     </div>`;
+
+  el.querySelectorAll(".btn-inspect-key").forEach(btn => {
+    btn.addEventListener("click", () => openKeyInspectModal(btn.dataset.key));
+  });
+}
+
+async function openKeyInspectModal(keyId) {
+  const modal = document.getElementById("keyInspectModal");
+  const body = document.getElementById("keyInspectBody");
+  if (!modal || !body) return;
+
+  modal.hidden = false;
+  body.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-3)">Decrypting & inspecting key material for <strong>${escapeHtml(keyId)}</strong>…</div>`;
+
+  try {
+    const data = await api(`/api/v1/admin/keys/${encodeURIComponent(keyId)}/inspect`);
+    const hexSnippet = data.keyMaterialHex ? data.keyMaterialHex.toUpperCase() : "";
+    body.innerHTML = `
+      <div class="inspect-detail-grid">
+        <div class="inspect-item">
+          <span class="inspect-label">Key ID</span>
+          <span class="inspect-val mono">${escapeHtml(data.keyId)}</span>
+        </div>
+        <div class="inspect-item">
+          <span class="inspect-label">Algorithm</span>
+          <span class="inspect-val">${algorithmBadge(data.algorithmUsage)}</span>
+        </div>
+        <div class="inspect-item">
+          <span class="inspect-label">Status</span>
+          <span class="inspect-val">${statusBadge(data.status)}</span>
+        </div>
+        <div class="inspect-item">
+          <span class="inspect-label">Key Size</span>
+          <span class="inspect-val">${data.keySizeBytes} Bytes (${data.keySizeBytes * 8} bits)</span>
+        </div>
+      </div>
+
+      <div class="inspect-key-box">
+        <div class="inspect-box-header">
+          <span>Decrypted Raw Key Secret (Hex Encoding)</span>
+          <button type="button" id="copyHexBtn" class="btn btn--ghost btn--xs">📋 Copy Hex</button>
+        </div>
+        <textarea readonly class="inspect-code-area mono">${escapeHtml(hexSnippet)}</textarea>
+      </div>
+
+      <div class="inspect-key-box" style="margin-top:12px">
+        <div class="inspect-box-header">
+          <span>Base64 Key Secret</span>
+        </div>
+        <textarea readonly class="inspect-code-area mono" style="height:55px">${escapeHtml(data.keyMaterialBase64)}</textarea>
+      </div>
+    `;
+
+    document.getElementById("copyHexBtn")?.addEventListener("click", () => {
+      navigator.clipboard.writeText(hexSnippet);
+      const btn = document.getElementById("copyHexBtn");
+      if (btn) btn.textContent = "✅ Copied!";
+      setTimeout(() => {
+        const copyBtn = document.getElementById("copyHexBtn");
+        if (copyBtn) copyBtn.textContent = "📋 Copy Hex";
+      }, 2000);
+    });
+
+  } catch (err) {
+    body.innerHTML = `<div style="color:var(--danger);padding:16px">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderKeyPool(data) {
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    if (data.summary) {
+      renderAdminStatsContainer(data.summary);
+      renderBb84SiftingCard(data.summary.lastBb84Sim);
+    }
+    cachedKeyPoolKeys = Array.isArray(data.keys) ? data.keys : [];
+  } else if (Array.isArray(data)) {
+    cachedKeyPoolKeys = data;
+  } else {
+    cachedKeyPoolKeys = [];
+  }
+  renderKeyPoolTable();
 }
 
 function renderComposeResult(data) {
@@ -435,8 +622,10 @@ function toggleApp(isLoggedIn) {
 function applyAdminMode() {
   const adminPanel = document.getElementById("adminPanel");
   const toggleBtn = document.getElementById("adminToggleBtn");
+  const topbarBtn = document.getElementById("adminToggleTopbarBtn");
   if (adminPanel) adminPanel.hidden = !adminMode;
   if (toggleBtn) toggleBtn.textContent = adminMode ? "Hide admin" : "Admin tools";
+  if (topbarBtn) topbarBtn.textContent = adminMode ? "🛠️ Hide Admin" : "🛠️ Admin Tools";
 }
 
 function readOAuthResult() {
@@ -729,13 +918,13 @@ if (simulateBb84Btn) {
     simulateBb84Btn.textContent = "Simulating…";
     try {
       const result = await api("/api/v1/admin/simulate-bb84", { method: "POST" });
-      renderBootstrapStatus(result?.result || result);
-      await loadAllowedEmails();
+      const simData = result?.result || result;
+      renderBootstrapStatus(simData);
+      renderBb84SiftingCard(simData);
+      await loadAllowedEmails().catch(() => {});
+      await loadKeyPool().catch(() => {});
       if (session) {
-        await refreshAuthenticatedView();
-      } else {
-        await loadStatus().catch(() => {});
-        if (adminMode) await loadKeyPool().catch(() => {});
+        await refreshAuthenticatedView().catch(() => {});
       }
     } catch (error) {
       renderBootstrapStatus(error.message);
@@ -778,20 +967,31 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   renderBootstrapStatus("Logged out.");
 });
 
-document.getElementById("adminToggleBtn").addEventListener("click", async () => {
+async function handleAdminToggle() {
   adminMode = !adminMode;
   applyAdminMode();
 
-  if (!session) {
-    return;
-  }
-
-  try {
-    if (adminMode) {
-      await Promise.all([loadStatus(), loadKeyPool()]);
+  if (adminMode) {
+    try {
+      await Promise.all([loadStatus().catch(() => {}), loadKeyPool().catch(() => {})]);
+    } catch (error) {
+      renderBootstrapStatus(error.message);
     }
-  } catch (error) {
-    setText("bootstrapStatus", error.message);
+  }
+}
+
+document.getElementById("adminToggleBtn")?.addEventListener("click", handleAdminToggle);
+document.getElementById("adminToggleTopbarBtn")?.addEventListener("click", handleAdminToggle);
+document.getElementById("refreshPoolBtn")?.addEventListener("click", () => loadKeyPool().catch(() => {}));
+
+document.getElementById("closeInspectModalBtn")?.addEventListener("click", () => {
+  const modal = document.getElementById("keyInspectModal");
+  if (modal) modal.hidden = true;
+});
+
+document.getElementById("keyInspectModal")?.addEventListener("click", (e) => {
+  if (e.target.id === "keyInspectModal") {
+    e.target.hidden = true;
   }
 });
 

@@ -133,6 +133,9 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
               Refresh
             </button>
+            <button id="adminToggleTopbarBtn" type="button" class="btn btn--ghost btn--sm">
+              🛠️ Admin Tools
+            </button>
             <button id="simulateBb84Btn" type="button" class="btn btn--primary btn--sm">
               ⚡ Simulate BB84 QKD
             </button>
@@ -243,22 +246,60 @@
         <!-- Admin panel (collapsible) -->
         <section id="adminPanel" class="admin-panel" hidden>
           <div class="admin-header">
-            <h3>Admin Tools</h3>
+            <div class="admin-header-title">
+              <h3>🛠️ Admin Tools & Key Management</h3>
+              <span class="admin-subtitle">Inspect quantum key pool, BB84 sifting metrics, and system connections</span>
+            </div>
             <div class="admin-actions">
-              <button id="refreshPoolBtn" type="button" class="btn btn--ghost btn--sm">Refresh Key Pool</button>
+              <button id="refreshPoolBtn" type="button" class="btn btn--ghost btn--sm">🔄 Refresh Key Pool</button>
             </div>
           </div>
+
+          <!-- Summary Metric Cards -->
+          <div id="adminStatsContainer" class="admin-stats-row"></div>
+
           <div class="admin-grid">
+            <div class="admin-card admin-card--sifting">
+              <div class="admin-card-title">⚡ BB84 QKD Sifting & Quantum Channel Report</div>
+              <div id="bb84SiftingCard">Loading simulation metrics...</div>
+            </div>
+
             <div class="admin-card">
-              <div class="admin-card-title">Gmail Connections</div>
+              <div class="admin-card-title">📧 Gmail API Connections</div>
               <div id="gmailStatus">Loading...</div>
             </div>
-            <div class="admin-card admin-card--wide">
-              <div class="admin-card-title">Developer Key Pool</div>
+
+            <div class="admin-card admin-card--full">
+              <div class="admin-card-header">
+                <div class="admin-card-title">🔑 Quantum Key Pool & Key Inspector</div>
+                <div class="key-pool-filters">
+                  <select id="keyPoolAlgoFilter" class="option-select option-select--sm">
+                    <option value="ALL">All Algorithms</option>
+                    <option value="AES256_GCM">AES-256-GCM</option>
+                    <option value="OTP">Quantum OTP</option>
+                  </select>
+                  <select id="keyPoolStatusFilter" class="option-select option-select--sm">
+                    <option value="ALL">All Statuses</option>
+                    <option value="AVAILABLE">Available</option>
+                    <option value="CONSUMED">Consumed</option>
+                  </select>
+                </div>
+              </div>
               <div id="keyPool"></div>
             </div>
           </div>
         </section>
+
+        <!-- Key Inspection Modal -->
+        <div id="keyInspectModal" class="modal-backdrop" hidden>
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">🔑 Key Inspector</h3>
+              <button id="closeInspectModalBtn" class="btn-close" type="button">&times;</button>
+            </div>
+            <div id="keyInspectBody" class="modal-body"></div>
+          </div>
+        </div>
 
       </main>
     </div>

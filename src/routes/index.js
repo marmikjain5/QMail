@@ -15,7 +15,7 @@ import {
 } from "../lib/validation.js";
 import { ensureDefaultClients, getAllowedLoginEmails, getClientByCode, getClientByEmail, listClients } from "../services/clientService.js";
 import { seedMockKeys, simulateBb84KeyPool } from "../services/keySeederService.js";
-import { getKmeStatus, listKeyPool, reserveKey, retrievePeerKey } from "../services/kmeService.js";
+import { getKmeStatus, inspectKeyMaterial, listKeyPool, reserveKey, retrievePeerKey } from "../services/kmeService.js";
 import { getGmailAuthUrl, getGmailConnectionStatus, storeGmailTokens } from "../services/mailService.js";
 import { decryptMessageForUser, decryptMessageForViewer, listMessagesForClient, listMessagesForUser, sendMessage, sendMessageAsUser } from "../services/messageService.js";
 import { getDecryptedAttachment } from "../services/attachmentService.js";
@@ -118,6 +118,10 @@ export function registerRoutes(app) {
 
   app.get("/api/v1/admin/key-pool", asyncHandler(async (_req, res) => {
     res.json(await listKeyPool());
+  }));
+
+  app.get("/api/v1/admin/keys/:keyId/inspect", asyncHandler(async (req, res) => {
+    res.json(await inspectKeyMaterial(req.params.keyId));
   }));
 
   app.post("/api/v1/qkm/keys/reserve", asyncHandler(async (req, res) => {

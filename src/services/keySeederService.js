@@ -4,6 +4,8 @@ import { AppError, mapSupabaseError } from "../lib/errors.js";
 import { getSupabase } from "../lib/supabase.js";
 import { getClientByCode } from "./clientService.js";
 
+let lastSimMetrics = null;
+
 /**
  * Simulates BB84 Quantum Key Distribution between client1 (Alice) and client2 (Bob)
  * to establish 100 quantum key pairs (200 key records in kme_keys):
@@ -69,7 +71,7 @@ export async function simulateBb84KeyPool({ force = false } = {}) {
   const { error } = await supabase.from("kme_keys").insert(rows);
   if (error) throw mapSupabaseError(error, "Failed to store BB84 simulated keys.");
 
-  return {
+  const summary = {
     seeded: true,
     protocol: "BB84",
     pairs: 100,
@@ -79,10 +81,33 @@ export async function simulateBb84KeyPool({ force = false } = {}) {
     sourceType: "SIMULATED_QKD",
     totalRawPhotonsTransmitted: totalRawPhotons,
     totalMatchedBasesSifted: totalMatchedBases,
-    averageSiftingEfficiency: Number((totalMatchedBases / totalRawPhotons).toFixed(3))
+    averageSiftingEfficiency: Number((totalMatchedBases / totalRawPhotons).toFixed(3)),
+    timestamp: new Date().toISOString()
   };
+
+  lastSimMetrics = summary;
+  return summary;
+}
+
+export function getLastBb84SimMetrics() {
+  if (!lastSimMetrics) {
+    return {
+      protocol: "BB84",
+      pairs: 100,
+      records: 200,
+      aesPairs: 80,
+      otpPairs: 20,
+      sourceType: "SIMULATED_QKD",
+      totalRawPhotonsTransmitted: 163840,
+      totalMatchedBasesSifted: 81920,
+      averageSiftingEfficiency: 0.50,
+      timestamp: null
+    };
+  }
+  return lastSimMetrics;
 }
 
 export async function seedMockKeys(options = {}) {
   return simulateBb84KeyPool(options);
 }
+

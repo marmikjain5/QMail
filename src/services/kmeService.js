@@ -2,6 +2,7 @@ import { decryptSecret } from "../lib/crypto.js";
 import { AppError, mapSupabaseError } from "../lib/errors.js";
 import { getSupabase } from "../lib/supabase.js";
 import { getClientByCode } from "./clientService.js";
+import { getLastBb84SimMetrics } from "./keySeederService.js";
 
 async function logKeyEvent({ keyId, eventType, actorType, actorId, messageId = null, details = {} }) {
   const supabase = getSupabase();
@@ -19,21 +20,30 @@ export async function getKmeStatus() {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("kme_keys")
-    .select("algorithm_usage, status")
-    .order("algorithm_usage");
-  if (error) throw mapSupabaseError(error, "Failed to read KME status.");
+    .select("status, algorithm_usage");
 
-  const summary = data.reduce(
-    (acc, row) => {
-      acc.total += 1;
-      acc.byStatus[row.status] = (acc.byStatus[row.status] || 0) + 1;
-      acc.byAlgorithm[row.algorithm_usage] = (acc.byAlgorithm[row.algorithm_usage] || 0) + 1;
-      return acc;
+  if (error) throw mapSupabaseError(error, "Failed to load KME status.");
+
+  const total = data.length;
+  const available = data.filter((row) => row.status === "AVAILABLE").length;
+  const reserved = data.filter((row) => row.status === "RESERVED").length;
+  const consumed = data.filter((row) => row.status === "CONSUMED").length;
+  const aesCount = data.filter((row) => row.algorithm_usage === "AES256_GCM").length;
+  const otpCount = data.filter((row) => row.algorithm_usage === "OTP").length;
+
+  return {
+    service: "QuMail-KME",
+    status: available > 0 ? "HEALTHY" : "DEGRADED",
+    keyPool: {
+      total,
+      available,
+      reserved,
+      consumed,
+      aes256Keys: aesCount,
+      quantumOtpKeys: otpCount
     },
-    { total: 0, byStatus: {}, byAlgorithm: {} }
-  );
-
-  return summary;
+    lastBb84Sim: getLastBb84SimMetrics()
+  };
 }
 
 export async function reserveKey({ sourceClientCode, targetClientCode, mode, requestedBytes, purpose }) {
@@ -144,6 +154,52 @@ export async function listKeyPool() {
     .select("key_id, pair_id, algorithm_usage, source_type, status, key_size_bytes, created_at")
     .order("created_at", { ascending: true })
     .limit(200);
+
   if (error) throw mapSupabaseError(error, "Failed to load key pool.");
-  return data;
+
+  const total = data.length;
+  const available = data.filter((k) => k.status === "AVAILABLE").length;
+  const reserved = data.filter((k) => k.status === "RESERVED").length;
+  const consumed = data.filter((k) => k.status === "CONSUMED").length;
+  const aes256Keys = data.filter((k) => k.algorithm_usage === "AES256_GCM").length;
+  const quantumOtpKeys = data.filter((k) => k.algorithm_usage === "OTP").length;
+
+  return {
+    summary: {
+      total,
+      available,
+      reserved,
+      consumed,
+      aes256Keys,
+      quantumOtpKeys,
+      lastBb84Sim: getLastBb84SimMetrics()
+    },
+    keys: data
+  };
 }
+
+export async function inspectKeyMaterial(keyId) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("kme_keys")
+    .select("key_id, key_material_encrypted, key_size_bytes, algorithm_usage, status, created_at")
+    .eq("key_id", keyId)
+    .limit(1)
+    .single();
+
+  if (error || !data) throw new AppError(`Key ${keyId} not found.`, 404);
+
+  const rawBase64 = decryptSecret(data.key_material_encrypted);
+  const rawBuf = Buffer.from(rawBase64, "base64");
+
+  return {
+    keyId: data.key_id,
+    algorithmUsage: data.algorithm_usage,
+    keySizeBytes: data.key_size_bytes,
+    status: data.status,
+    createdAt: data.created_at,
+    keyMaterialBase64: rawBase64,
+    keyMaterialHex: rawBuf.toString("hex")
+  };
+}
+
