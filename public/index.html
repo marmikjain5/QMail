@@ -136,8 +136,11 @@
             <button id="adminToggleTopbarBtn" type="button" class="btn btn--ghost btn--sm">
               🛠️ Admin Tools
             </button>
-            <button id="simulateBb84Btn" type="button" class="btn btn--primary btn--sm">
-              ⚡ Simulate BB84 QKD
+            <button id="simulateNormalBb84Btn" type="button" class="btn btn--primary btn--sm">
+              🔑 Simulate Normal BB84
+            </button>
+            <button id="simulateAttackerBb84Btn" type="button" class="btn btn--danger-outline btn--sm">
+              ⚠️ Simulate BB84 With Attacker
             </button>
           </div>
         </header>
@@ -260,7 +263,13 @@
 
           <div class="admin-grid">
             <div class="admin-card admin-card--sifting">
-              <div class="admin-card-title">⚡ BB84 QKD Sifting & Quantum Channel Report</div>
+              <div class="admin-card-header-flex">
+                <div class="admin-card-title">⚡ BB84 QKD Sifting, QBER & ML Anomaly Report</div>
+                <div class="sim-actions-inline">
+                  <button id="adminSimNormalBtn" class="btn btn--primary btn--xs">🔑 Normal BB84</button>
+                  <button id="adminSimAttackerBtn" class="btn btn--danger-outline btn--xs">⚠️ Attacker Mode</button>
+                </div>
+              </div>
               <div id="bb84SiftingCard">Loading simulation metrics...</div>
             </div>
 

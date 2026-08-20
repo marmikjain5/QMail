@@ -63,10 +63,13 @@ function renderKmeStatus(data) {
   const el = document.getElementById("kmeStatusSidebar");
   if (!el) return;
   if (typeof data === "string") { el.textContent = data; return; }
+  // API returns: { keyPool: { total, available, consumed, ... } }
+  // Legacy shape: { byStatus: { AVAILABLE, CONSUMED }, total }
+  const kp = data.keyPool || {};
   const byStatus = data.byStatus || {};
-  const total = data.total ?? 0;
-  const available = byStatus.AVAILABLE ?? 0;
-  const consumed = byStatus.CONSUMED ?? 0;
+  const total = kp.total ?? data.total ?? 0;
+  const available = kp.available ?? byStatus.AVAILABLE ?? 0;
+  const consumed = kp.consumed ?? byStatus.CONSUMED ?? 0;
   el.innerHTML = `
     <div class="stat-grid">
       <div class="stat-card">
@@ -83,6 +86,7 @@ function renderKmeStatus(data) {
       </div>
     </div>`;
 }
+
 
 let cachedKeyPoolKeys = [];
 
@@ -131,44 +135,111 @@ function renderBb84SiftingCard(simData) {
     container.innerHTML = `
       <div class="sifting-empty-state">
         <p>No active BB84 simulation metrics recorded yet in this session.</p>
-        <p class="muted-text">Click <strong>⚡ Simulate BB84 QKD</strong> in the topbar to execute quantum key distribution.</p>
+        <p class="muted-text">Click <strong>🔑 Simulate Normal BB84</strong> or <strong>⚠️ Simulate BB84 With Attacker</strong> to run QKD protocol.</p>
       </div>`;
     return;
   }
 
-  const rawPhotons = (simData.totalRawPhotonsTransmitted || 163840).toLocaleString();
-  const matchedBases = (simData.totalMatchedBasesSifted || 81920).toLocaleString();
-  const yieldPct = ((simData.averageSiftingEfficiency || 0.5) * 100).toFixed(1);
-  const ts = simData.timestamp ? new Date(simData.timestamp).toLocaleTimeString() : "Recent simulation";
+  const mode = simData.mode || "NORMAL";
+  const isAttacker = mode === "ATTACKER";
+  const telemetry = simData.telemetry || {};
+  const mlResult = simData.mlResult || {};
+  
+  const qberPct = (telemetry.qberPercentage ?? (telemetry.qber * 100) ?? 2.0).toFixed(1);
+  const lossPct = (telemetry.photonLossPercentage ?? (telemetry.photonLossRate * 100) ?? 3.0).toFixed(1);
+  const detectPct = (telemetry.detectionPercentage ?? (telemetry.detectionRate * 100) ?? 97.0).toFixed(1);
+  const siftedLen = telemetry.siftedKeyLength || 256;
+  const keyGenRate = telemetry.keyGenerationRate || 480;
+
+  const isApproved = simData.qkdApproved !== false && simData.seeded !== false;
+  const hardQberAborted = simData.hardQberAborted || (telemetry.qber > (simData.qberThreshold || 0.11));
+  const isMlAnomaly = mlResult.prediction === "ANOMALY" || mlResult.isAnomaly;
+  const anomalyScore = mlResult.anomalyScore !== undefined ? mlResult.anomalyScore : 0.0;
+
+  const ts = simData.timestamp ? new Date(simData.timestamp).toLocaleTimeString() : "Just now";
+
+  // Badges & Status HTML
+  const modeBadgeHtml = isAttacker 
+    ? `<span class="qkd-badge qkd-badge--warning">⚠️ ATTACKER DISTURBED CHANNEL</span>`
+    : `<span class="qkd-badge qkd-badge--info">🔵 NORMAL BB84 CHANNEL</span>`;
+
+  const mlStatusHtml = isMlAnomaly
+    ? `<div class="ml-status-pill ml-status-pill--anomaly">🔴 ANOMALY DETECTED <span class="muted-text">(Score: ${anomalyScore})</span></div>`
+    : `<div class="ml-status-pill ml-status-pill--normal">🟢 NORMAL <span class="muted-text">(Score: +${anomalyScore})</span></div>`;
+
+  let decisionBannerHtml = "";
+  if (isApproved) {
+    decisionBannerHtml = `
+      <div class="qkd-decision-banner qkd-decision-banner--approved">
+        <div class="decision-icon">🟢</div>
+        <div class="decision-content">
+          <div class="decision-title">KEY DISTRIBUTION APPROVED</div>
+          <div class="decision-desc">Quantum channel parameters are safe and verified. Keys have been securely provisioned to the QKM Key Pool.</div>
+        </div>
+      </div>`;
+  } else {
+    let abortReason = simData.reason || "Excessive disturbance detected.";
+    if (hardQberAborted) {
+      abortReason = `QBER threshold exceeded (${qberPct}% > 11.0%)`;
+    } else if (isMlAnomaly) {
+      abortReason = `Abnormal QKD channel behavior detected by ML (Anomaly Score: ${anomalyScore})`;
+    }
+    decisionBannerHtml = `
+      <div class="qkd-decision-banner qkd-decision-banner--aborted">
+        <div class="decision-icon">🔴</div>
+        <div class="decision-content">
+          <div class="decision-title">QKD SESSION ABORTED</div>
+          <div class="decision-desc"><strong>Reason:</strong> ${escapeHtml(abortReason)}</div>
+          <div class="decision-subnote">⚠️ All generated key material has been immediately discarded. No keys added to QKM.</div>
+        </div>
+      </div>`;
+  }
 
   container.innerHTML = `
-    <div class="sifting-metrics-grid">
-      <div class="sifting-metric-item">
-        <span class="sifting-metric-label">Quantum Channel Transmitted</span>
-        <span class="sifting-metric-value">${rawPhotons} photons (raw bits)</span>
+    <div class="sifting-card-top">
+      <div class="sifting-mode-wrap">${modeBadgeHtml}</div>
+      <div class="sifting-ts muted-text">Executed: ${ts}</div>
+    </div>
+
+    <!-- Telemetry Metrics Grid -->
+    <div class="qkd-telemetry-grid">
+      <div class="qkd-telemetry-card ${Number(qberPct) > 11 ? 'qkd-telemetry-card--danger' : ''}">
+        <div class="qkd-tel-label">QBER (Bit Error Rate)</div>
+        <div class="qkd-tel-val ${Number(qberPct) > 11 ? 'text-red' : 'text-green'}">${qberPct}%</div>
+        <div class="qkd-tel-sub">Threshold: &le; 11.0%</div>
       </div>
-      <div class="sifting-metric-item">
-        <span class="sifting-metric-label">Sifting Phase Basis Match</span>
-        <span class="sifting-metric-value">${matchedBases} matched bases</span>
+      <div class="qkd-telemetry-card">
+        <div class="qkd-tel-label">Photon Loss Rate</div>
+        <div class="qkd-tel-val">${lossPct}%</div>
+        <div class="qkd-tel-sub">Channel Loss</div>
       </div>
-      <div class="sifting-metric-item">
-        <span class="sifting-metric-label">Sifting Yield Efficiency</span>
-        <span class="sifting-metric-value text-green">${yieldPct}% Yield</span>
+      <div class="qkd-telemetry-card">
+        <div class="qkd-tel-label">Detection Rate</div>
+        <div class="qkd-tel-val">${detectPct}%</div>
+        <div class="qkd-tel-sub">Fidelity</div>
       </div>
-      <div class="sifting-metric-item">
-        <span class="sifting-metric-label">Key Pairs Established</span>
-        <span class="sifting-metric-value">${simData.pairs || 100} pairs (${simData.aesPairs || 80} AES + ${simData.otpPairs || 20} OTP)</span>
+      <div class="qkd-telemetry-card">
+        <div class="qkd-tel-label">Sifted Key Length</div>
+        <div class="qkd-tel-val">${siftedLen} <span class="unit">bits</span></div>
+        <div class="qkd-tel-sub">Post-Sampling</div>
+      </div>
+      <div class="qkd-telemetry-card">
+        <div class="qkd-tel-label">Key Generation Rate</div>
+        <div class="qkd-tel-val">${keyGenRate} <span class="unit">bits/sec</span></div>
+        <div class="qkd-tel-sub">Simulated Rate</div>
       </div>
     </div>
-    <div class="sifting-progress-bar-wrap">
-      <div class="sifting-progress-label"><span>Polarization Basis Match Yield (+ / x)</span><span>${yieldPct}%</span></div>
-      <div class="sifting-progress-track">
-        <div class="sifting-progress-fill" style="width: ${yieldPct}%"></div>
+
+    <!-- ML Anomaly Status -->
+    <div class="qkd-ml-section">
+      <div class="qkd-ml-header">
+        <span class="qkd-ml-title">🤖 Isolation Forest ML Anomaly Detection</span>
+        ${mlStatusHtml}
       </div>
     </div>
-    <div class="sifting-footer-meta muted-text">
-      Protocol: BB84 4-State Quantum Key Distribution · Quantum Channel Noise: 0% · Last Run: ${ts}
-    </div>
+
+    <!-- Final Security Decision -->
+    ${decisionBannerHtml}
   `;
 }
 
@@ -589,12 +660,18 @@ function renderBootstrapStatus(data) {
   if (!data && data !== 0) { el.textContent = ""; return; }
   if (data && typeof data === "object" && data.protocol === "BB84") {
     const yieldPct = ((data.averageSiftingEfficiency || 0) * 100).toFixed(1);
-    el.innerHTML = `<span class="status-pill">⚡ BB84 Simulated: Established ${data.pairs} key pairs (${data.records} keys: ${data.aesPairs} AES-256 + ${data.otpPairs} OTP) · Sifting Yield: ${yieldPct}%</span>`;
+    if (data.qkdApproved || data.seeded) {
+      el.innerHTML = `<span class="status-pill" style="color:var(--success)">✅ BB84 Approved · ${data.pairs} key pairs seeded (${data.aesPairs} AES + ${data.otpPairs} OTP) · Yield: ${yieldPct}%</span>`;
+    } else {
+      const shortReason = (data.reason || "").length > 80 ? (data.reason || "").substring(0, 80) + "…" : (data.reason || "QKD Aborted");
+      el.innerHTML = `<span class="status-pill" style="color:#f87171">🔴 QKD SESSION ABORTED · Pool flushed · ${escapeHtml(shortReason)}</span>`;
+    }
     return;
   }
   const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
   el.innerHTML = `<span class="status-pill">${escapeHtml(text)}</span>`;
 }
+
 
 function switchView(viewName) {
   document.querySelectorAll(".view").forEach(v => {
@@ -910,30 +987,37 @@ document.querySelectorAll(".view").forEach(v => { v.style.display = "none"; });
 const initialView = document.getElementById("viewInbox");
 if (initialView) { initialView.style.display = "flex"; initialView.classList.add("view--active"); }
 
-const simulateBb84Btn = document.getElementById("simulateBb84Btn") || document.getElementById("bootstrapBtn");
-if (simulateBb84Btn) {
-  simulateBb84Btn.addEventListener("click", async () => {
-    simulateBb84Btn.disabled = true;
-    const prevText = simulateBb84Btn.textContent;
-    simulateBb84Btn.textContent = "Simulating…";
-    try {
-      const result = await api("/api/v1/admin/simulate-bb84", { method: "POST" });
-      const simData = result?.result || result;
-      renderBootstrapStatus(simData);
-      renderBb84SiftingCard(simData);
-      await loadAllowedEmails().catch(() => {});
-      await loadKeyPool().catch(() => {});
-      if (session) {
-        await refreshAuthenticatedView().catch(() => {});
-      }
-    } catch (error) {
-      renderBootstrapStatus(error.message);
-    } finally {
-      simulateBb84Btn.disabled = false;
-      simulateBb84Btn.textContent = prevText;
+async function runQkdSimulation(mode, triggerBtn) {
+  if (triggerBtn) {
+    triggerBtn.disabled = true;
+  }
+  const statusEl = document.getElementById("bootstrapStatus");
+  if (statusEl) statusEl.textContent = `Running ${mode} simulation…`;
+
+  try {
+    const result = await api("/api/v1/admin/simulate-bb84", {
+      method: "POST",
+      body: JSON.stringify({ mode })
+    });
+    const simData = result?.result || result;
+    renderBootstrapStatus(simData);
+    renderBb84SiftingCard(simData);
+    await loadAllowedEmails().catch(() => {});
+    await loadKeyPool().catch(() => {});
+    if (session) {
+      await refreshAuthenticatedView().catch(() => {});
     }
-  });
+  } catch (error) {
+    renderBootstrapStatus(error.message);
+  } finally {
+    if (triggerBtn) triggerBtn.disabled = false;
+  }
 }
+
+document.getElementById("simulateNormalBb84Btn")?.addEventListener("click", (e) => runQkdSimulation("NORMAL", e.currentTarget));
+document.getElementById("simulateAttackerBb84Btn")?.addEventListener("click", (e) => runQkdSimulation("ATTACKER", e.currentTarget));
+document.getElementById("adminSimNormalBtn")?.addEventListener("click", (e) => runQkdSimulation("NORMAL", e.currentTarget));
+document.getElementById("adminSimAttackerBtn")?.addEventListener("click", (e) => runQkdSimulation("ATTACKER", e.currentTarget));
 
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();

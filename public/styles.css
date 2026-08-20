@@ -1464,6 +1464,7 @@ input[readonly].compose-input {
 .text-blue { color: #3B82F6; }
 .text-purple { color: #A855F7; }
 .text-green { color: #10B981; }
+.text-red { color: #f87171; }
 
 .btn--xs {
   padding: 3px 8px;
@@ -1852,3 +1853,191 @@ pre {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ── QKD Telemetry & ML Anomaly Detection UI ────────────────── */
+.btn--danger-outline {
+  background: rgba(239,68,68,0.1);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.4);
+}
+.btn--danger-outline:hover {
+  background: rgba(239,68,68,0.25);
+  border-color: #ef4444;
+  color: #fff;
+}
+
+.admin-card-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.sim-actions-inline {
+  display: flex;
+  gap: 8px;
+}
+
+.sifting-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.qkd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.qkd-badge--info {
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.3);
+}
+.qkd-badge--warning {
+  background: rgba(245,158,11,0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245,158,11,0.4);
+}
+
+.qkd-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.qkd-telemetry-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.qkd-telemetry-card--danger {
+  border-color: rgba(239,68,68,0.5);
+  background: rgba(239,68,68,0.05);
+}
+
+.qkd-tel-label {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.qkd-tel-val {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text);
+}
+.qkd-tel-val .unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.qkd-tel-sub {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.qkd-ml-section {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+
+.qkd-ml-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qkd-ml-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ml-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.ml-status-pill--normal {
+  background: rgba(16,185,129,0.15);
+  color: #34d399;
+  border: 1px solid rgba(16,185,129,0.3);
+}
+.ml-status-pill--anomaly {
+  background: rgba(239,68,68,0.15);
+  color: #f87171;
+  border: 1px solid rgba(239,68,68,0.4);
+}
+
+.qkd-decision-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+}
+.qkd-decision-banner--approved {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.3);
+}
+.qkd-decision-banner--aborted {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.4);
+}
+
+.decision-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.decision-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.qkd-decision-banner--approved .decision-title { color: #34d399; }
+.qkd-decision-banner--aborted .decision-title { color: #f87171; }
+
+.decision-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.decision-subnote {
+  font-size: 11px;
+  color: #f87171;
+  margin-top: 4px;
+  font-weight: 500;
+}
+

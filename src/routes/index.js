@@ -38,15 +38,17 @@ export function registerRoutes(app) {
     });
   });
 
-  app.post("/api/v1/admin/simulate-bb84", asyncHandler(async (_req, res) => {
+  app.post("/api/v1/admin/simulate-bb84", asyncHandler(async (req, res) => {
     await ensureDefaultClients();
-    const result = await simulateBb84KeyPool({ force: true });
+    const mode = req.body?.mode === "ATTACKER" ? "ATTACKER" : "NORMAL";
+    const result = await simulateBb84KeyPool({ force: true, mode });
     res.json({ ok: true, result });
   }));
 
-  app.post("/api/v1/admin/bootstrap", asyncHandler(async (_req, res) => {
+  app.post("/api/v1/admin/bootstrap", asyncHandler(async (req, res) => {
     await ensureDefaultClients();
-    const result = await simulateBb84KeyPool({ force: true });
+    const mode = req.body?.mode === "ATTACKER" ? "ATTACKER" : "NORMAL";
+    const result = await simulateBb84KeyPool({ force: true, mode });
     res.json({ ok: true, result });
   }));
 

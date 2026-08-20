@@ -252,3 +252,67 @@ Restarting 'src/index.js'
 (Use `node --trace-deprecation ...` to show where the warning was created)
 QuMail server listening on http://localhost:3000
 Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:23272) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:3516) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:28784) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:29072) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:2404) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:11968) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:25580) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
+Restarting 'src/index.js'
+[blockchainService] Module loaded
+[routes] Blockchain service imported, registerAttachment: registerAttachment
+[routes] registerRoutes called
+(node:20344) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+QuMail server listening on http://localhost:3000
+Completed running 'src/index.js'
