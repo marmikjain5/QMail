@@ -879,6 +879,11 @@ async function loadInbox() {
     const handler = async () => {
       root.querySelectorAll('.message-card').forEach(c => c.classList.remove('message-card--active'));
       card.classList.add('message-card--active');
+      
+      // Clear compose result when a mail is selected to decrypt
+      const el = document.getElementById("composeResult");
+      if (el) el.innerHTML = "";
+
       await checkEmail(card.dataset.message);
     };
     card.addEventListener('click', handler);
@@ -979,6 +984,11 @@ document.querySelectorAll(".sidebar-nav-item").forEach(btn => {
   btn.addEventListener("click", () => {
     const view = btn.dataset.view;
     if (view) switchView(view);
+    if (view === "compose") {
+      // Clear the composeResult success banner
+      const el = document.getElementById("composeResult");
+      if (el) el.innerHTML = "";
+    }
   });
 });
 
@@ -1117,13 +1127,13 @@ document.getElementById("composeForm").addEventListener("submit", async (event) 
       body: formData
     }, true);
     renderComposeResult(result);
+    // Reset compose form fields
+    form.reset();
     // Reset attachments
     if (attachFilesInput) attachFilesInput.value = "";
     if (attachPreview) attachPreview.innerHTML = "";
     await loadInbox();
     await loadKeyPool();
-    // Auto-switch to inbox after a short delay
-    setTimeout(() => switchView('inbox'), 1200);
   } catch (error) {
     const el = document.getElementById("composeResult");
     if (el) el.innerHTML = `<div style="margin:16px;padding:12px 16px;background:var(--danger-subtle);border:1px solid rgba(239,68,68,.3);border-radius:var(--radius);color:#f87171;font-size:13px">${escapeHtml(error.message)}</div>`;
